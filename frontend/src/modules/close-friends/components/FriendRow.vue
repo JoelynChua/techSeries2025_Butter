@@ -1,11 +1,11 @@
 <template>
-  <!-- Tamagotchi-style soft card -->
+
   <div
     class="relative overflow-hidden rounded-[28px] p-4 ring-1
            shadow-[0_18px_48px_-22px_rgba(24,39,75,0.35)]
            ring-sky-100 bg-gradient-to-b from-sky-50 to-sky-100"
   >
-    <!-- faint egg pattern -->
+  
     <div
       aria-hidden="true"
       class="pointer-events-none absolute inset-0 opacity-25 mix-blend-soft-light"
