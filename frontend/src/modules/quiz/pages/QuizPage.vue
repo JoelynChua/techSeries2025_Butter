@@ -51,7 +51,22 @@
 
         <!-- Question 2 -->
         <div v-if="currentQuestion === 2">
-          <p class="block font-semibold text-slate-700 mb-4 text-2xl">2. How long did you exercise/walk around today?</p>
+          <p class="block font-semibold text-slate-700 mb-6 text-2xl">2. How would you rate your sleep quality?</p>
+          <div class="flex flex-col gap-4">
+            <button
+              v-for="(option, index) in sleepQualityOptions"
+              :key="index"
+              :class="['option-btn', { selected: sleepQuality === option }]"
+              @click="sleepQuality = option"
+            >
+              {{ option }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Question 3 -->
+        <div v-if="currentQuestion === 3">
+          <p class="block font-semibold text-slate-700 mb-4 text-2xl">3. How long did you exercise/walk around today?</p>
           <p v-if="trackerConnected" class="text-lg text-slate-500 mb-4">
             📲 Value imported from health tracker: <strong>{{ exerciseHours }} hours</strong>
           </p>
@@ -89,9 +104,43 @@
           </div>
         </div>
 
-        <!-- Question 3 -->
-        <div v-if="currentQuestion === 3">
-          <p class="block font-semibold text-slate-700 mb-6 text-2xl">3. How would you describe your overall mood today?</p>
+        <!-- Question 4 -->
+        <div v-if="currentQuestion === 4">
+          <p class="block font-semibold text-slate-700 mb-14 text-2xl">4. How many hours did you work today?</p>
+
+          <div class="slider-wrapper relative mb-6">
+            <div
+              class="slider-value-tooltip"
+              :style="{ left: sliderTooltip(workHours, 0, 12, $refs.workSlider) }"
+            >
+              {{ workHours }}
+            </div>
+
+            <input
+              ref="workSlider"
+              type="range"
+              min="0"
+              max="12"
+              step="0.5"
+              v-model="workHours"
+              class="w-full h-6 rounded-lg accent-sky-500"
+            />
+          </div>
+
+          <div class="flex justify-between text-lg text-slate-500 mt-2">
+            <span>0</span>
+            <span>3</span>
+            <span>6</span>
+            <span>9</span>
+            <span>12</span>
+          </div>
+
+          <p class="text-3xl font-bold mt-6 text-center">{{ workHours }} hours</p>
+        </div>
+
+        <!-- Question 5 -->
+        <div v-if="currentQuestion === 5">
+          <p class="block font-semibold text-slate-700 mb-6 text-2xl">5. How would you describe your overall mood today?</p>
           <div class="flex flex-col gap-4">
             <button
               v-for="(option, index) in moodOptions"
@@ -104,10 +153,10 @@
           </div>
         </div>
 
-        <!-- Question 4 -->
-        <div v-if="currentQuestion === 4">
+        <!-- Question 6 -->
+        <div v-if="currentQuestion === 6">
           <p class="block font-semibold text-slate-700 mb-6 text-2xl text-center">
-            4. Did you connect with your family/friends today?
+            6. Did you connect with your family/friends today?
           </p>
           <div class="flex justify-center gap-8">
             <button
@@ -126,10 +175,12 @@
         </div>
 
         <!-- Results -->
-        <div v-if="currentQuestion === 5" class="text-center">
+        <div v-if="currentQuestion === 7" class="text-center">
           <h3 class="text-3xl font-bold text-slate-800 mb-6">Your Mood Summary</h3>
           <p class="text-xl text-slate-700 mb-2">Sleep: {{ sleepHours }} hrs</p>
+          <p class="text-xl text-slate-700 mb-2">Sleep Quality: {{ sleepQuality }}</p>
           <p class="text-xl text-slate-700 mb-2">Exercise: {{ exerciseHours }} hrs</p>
+          <p class="text-xl text-slate-700 mb-2">Work: {{ workHours }} hrs</p>
           <p class="text-xl text-slate-700 mb-2">Mood: {{ mood }}</p>
           <p class="text-xl text-slate-700">Connected with family/friends: {{ connected }}</p>
         </div>
@@ -137,13 +188,13 @@
       </div>
 
       <div class="flex justify-end gap-4 mt-10">
-        <button v-if="currentQuestion > 1 && currentQuestion < 5" @click="prevQuestion"
+        <button v-if="currentQuestion > 1 && currentQuestion < 7" @click="prevQuestion"
           class="px-6 py-3 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-sm text-lg">
           Back
         </button>
-        <button v-if="currentQuestion < 5" @click="nextQuestion"
+        <button v-if="currentQuestion < 7" @click="nextQuestion"
           class="px-6 py-3 rounded-xl text-white font-semibold shadow-md transition hover:shadow-lg active:translate-y-[1px] bg-[linear-gradient(180deg,#5EC4FF_0%,#3DA8FF_100%)] text-lg">
-          {{ currentQuestion === 4 ? 'Finish' : 'Next' }}
+          {{ currentQuestion === 6 ? 'Finish' : 'Next' }}
         </button>
       </div>
     </div>
@@ -158,7 +209,9 @@ export default {
       currentQuestion: 1,
       trackerConnected: false,
       sleepHours: 0,
+      sleepQuality: "",
       exerciseHours: 0,
+      workHours: 0,
       mood: "",
       connected: "",
       moodOptions: [
@@ -167,12 +220,19 @@ export default {
         "Neutral / okay",
         "Stressed / anxious",
         "Sad / down"
+      ],
+      sleepQualityOptions: [
+        "Very poor",
+        "Poor",
+        "Average",
+        "Good",
+        "Excellent"
       ]
     };
   },
   methods: {
     nextQuestion() {
-      if (this.currentQuestion < 5) this.currentQuestion++;
+      if (this.currentQuestion < 7) this.currentQuestion++;
     },
     prevQuestion() {
       if (this.currentQuestion > 1) this.currentQuestion--;
@@ -232,7 +292,7 @@ input[type="range"]::-webkit-slider-thumb {
 
 /* Option buttons */
 .option-btn {
-  padding: 18px 64px; /* larger width */
+  padding: 18px 64px;
   border: 1px solid #cce6ff;
   border-radius: 16px;
   background: #ffffff;
