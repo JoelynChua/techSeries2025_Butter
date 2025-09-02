@@ -207,7 +207,7 @@ export default {
   data() {
     return {
       currentQuestion: 1,
-      trackerConnected: false,
+      trackerConnected: true, // change to test
       sleepHours: 0,
       sleepQuality: "",
       exerciseHours: 0,
@@ -227,8 +227,29 @@ export default {
         "Average",
         "Good",
         "Excellent"
-      ]
+      ],
+      // Mock tracker data
+      mockTrackerData: {
+        sleepHours: 6.5,
+        exerciseHours: 1.5
+      }
     };
+  },
+  mounted() {
+    if (this.trackerConnected) {
+      if (this.mockTrackerData.sleepHours !== undefined) {
+        this.sleepHours = this.mockTrackerData.sleepHours;
+      }
+      if (this.mockTrackerData.sleepQuality !== undefined) {
+        this.sleepQuality = this.mockTrackerData.sleepQuality;
+      }
+      if (this.mockTrackerData.exerciseHours !== undefined) {
+        this.exerciseHours = this.mockTrackerData.exerciseHours;
+      }
+      if (this.mockTrackerData.workHours !== undefined) {
+        this.workHours = this.mockTrackerData.workHours;
+      }
+    }
   },
   methods: {
     nextQuestion() {
@@ -249,6 +270,8 @@ export default {
   }
 };
 </script>
+
+
 
 <style scoped>
 .slider-wrapper {
