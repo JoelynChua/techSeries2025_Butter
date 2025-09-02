@@ -1,5 +1,6 @@
 <template>
-  <CloseFriendsPage />
+  <!-- <CloseFriendsPage /> -->
+  <router-view />
 </template>
 
 <script setup>
