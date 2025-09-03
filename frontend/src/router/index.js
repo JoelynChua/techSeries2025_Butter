@@ -1,17 +1,21 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import closeFriendsRoutes from '../modules/close-friends/routes.js'
 
-// Lazy-load to avoid bundling issues; adjust the path to where your file is.
-const HomePage = () => import('../modules/homepage.vue') // e.g. '../pages/homepage.vue' if you moved it
+// Lazy-load to avoid bundling issues
+const HomePage = () => import('../modules/homepage.vue')
+const CloseFriendPage = () => import('../modules/close-friends/pages/CloseFriendsPage.vue')
 
 const routes = [
   { path: '/', name: 'Home', component: HomePage },
-  // Optional: allow /homepage URL too
   { path: '/homepage', redirect: { name: 'Home' } },
 
+  // ✅ Direct route to close-friend page
+  { path: '/close-friends', name: 'CloseFriends', component: CloseFriendPage },
+
+  // ✅ Include any child routes defined in closeFriendsRoutes
   ...closeFriendsRoutes,
 
-  // Optional: catch-all → go home (or show a 404 component)
+  // Catch-all → redirect home
   { path: '/:pathMatch(.*)*', redirect: { name: 'Home' } },
 ]
 
