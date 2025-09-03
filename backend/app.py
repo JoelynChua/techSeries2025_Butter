@@ -526,10 +526,13 @@ def create_mood_metric():
               example: Good
             finalMoodScores:
               type: string
-              example: "73"    # or any scoring format you store, e.g. "B+" or "73.5"
+              example: "73"
             created_timestamp:
               type: string
               example: "2025-09-02 21:30:00"
+            connectwithfamily:    
+              type: boolean
+              example: true
     responses:
       201:
         description: Created mood metric
@@ -543,15 +546,19 @@ def create_mood_metric():
     if user_id is None:
         return jsonify({"error": "Missing userId"}), 400
 
+    # Accept both spellings; prefer the correct key if both present
+    exercise_hours = data.get("exerciseHours", data.get("excerciseHours"))
+
     payload = {
         "userId": user_id,
         "sleepHours": data.get("sleepHours"),
-        "exerciseHours": data.get("exerciseHours"),
+        "excerciseHours": data.get("excerciseHours"),
         "workingHrs": data.get("workingHrs"),
         "mood": data.get("mood"),
         "sleepQuality": data.get("sleepQuality"),
         "finalMoodScores": data.get("finalMoodScores"),
         "created_timestamp": data.get("created_timestamp"),
+        "connectwithfamily": data.get("connectwithfamily"), 
     }
     payload = {k: v for k, v in payload.items() if v is not None}
 
@@ -561,7 +568,6 @@ def create_mood_metric():
         return jsonify({"message": "Created", "row": created[0] if created else None}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 
 @app.route("/moodMetric", methods=["PUT"])
@@ -591,7 +597,7 @@ def update_mood_metric():
             sleepHours:
               type: integer
               example: 7
-            exerciseHours:
+            excerciseHours:
               type: integer
               example: 2
             workingHrs:
@@ -609,6 +615,9 @@ def update_mood_metric():
             created_timestamp:
               type: string
               example: "2025-09-02 22:00:00"
+            connectwithfamily:   
+              type: boolean
+              example: false
     responses:
       200:
         description: Updated mood metric
@@ -624,15 +633,18 @@ def update_mood_metric():
     if row_id is None:
         return jsonify({"error": "Missing id"}), 400
 
+    exercise_hours = data.get("exerciseHours", data.get("excerciseHours"))
+
     fields = {
         "userId": data.get("userId"),
         "sleepHours": data.get("sleepHours"),
-        "exerciseHours": data.get("exerciseHours"),
+        "excerciseHours": data.get("excerciseHours"),
         "workingHrs": data.get("workingHrs"),
         "mood": data.get("mood"),
         "sleepQuality": data.get("sleepQuality"),
         "finalMoodScores": data.get("finalMoodScores"),
         "created_timestamp": data.get("created_timestamp"),
+        "connectwithfamily": data.get("connectwithfamily"),  
     }
     fields = {k: v for k, v in fields.items() if v is not None}
     if not fields:
@@ -646,6 +658,7 @@ def update_mood_metric():
         return jsonify({"message": "Updated", "row": updated[0]}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 # Options to build the quiz
 # ---------- Quiz Question Routes ----------
@@ -832,6 +845,33 @@ def get_encouragement():
         words = [row["encourageWords"] for row in rows if row.get("encourageWords")]
 
         return jsonify({"feeling": feeling, "encourageWords": words}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@app.route("/encouragementAll", methods=["GET"])
+def get_all_encouragement():
+    """
+    Get all encouragement entries
+    ---
+    tags:
+      - encouragement
+    responses:
+      200:
+        description: List of all encouragement rows
+      500:
+        description: Server error
+    """
+    try:
+        resp = (
+            supabase.table("mascot")  # <-- replace with your actual table name
+            .select("id, feeling, encourageWords")
+            .order("id", desc=True)
+            .execute()
+        )
+        rows = _exec_data(resp) or []
+
+        return jsonify({"rows": rows, "count": len(rows)}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

@@ -1,10 +1,26 @@
 <template>
-  <main class="home">
-    <div class="onboard-card">
+  <main class="home relative overflow-x-hidden">
+    <!-- Background gradient -->
+    <div class="absolute inset-0 bg-gradient-to-b from-sky-200 to-sky-300"></div>
+
+    <!-- Dotted overlay -->
+    <div
+      class="pointer-events-none absolute inset-0 opacity-20"
+      style="
+        background-image:
+          radial-gradient(white 18%, transparent 19%),
+          radial-gradient(white 18%, transparent 19%);
+        background-position: 0 0, 16px 16px;
+        background-size: 32px 32px;
+      "
+    ></div>
+
+    <!-- Foreground content -->
+    <div class="relative z-10 onboard-card">
       <div class="avatar-wrapper">
-        <!-- Mascot -->
-        <div class="avatar-container">
-          <img :src="mascot" alt="Eco Reality mascot" class="avatar" />
+        <!-- Mascot (clickable) -->
+        <div class="avatar-container" @click="randomiseFeeling">
+          <img :src="mascotPath" :alt="currentFeeling" class="avatar" />
           <!-- Speech bubble -->
           <div class="speech-bubble">
             {{ bubbleText }}
@@ -32,63 +48,72 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
-import mascot from "../assets/mascot/Blank.png"
 
-// ---- API baseURL (configurable via Vite env or fallback) ----
 const baseURL = import.meta.env.VITE_API_BASE || 'http://localhost:5000'
 
-// Extract a title-cased image name from the file path
-const imageName = computed(() => {
-  const path = String(mascot || '')
-  const filename = (path.split('/').pop() || '').split('?')[0]
-  const base = (filename.split('.').shift() || '')
-    .replace(/[-_]+/g, ' ')
-    .trim()
-    .toLowerCase()
+const currentFeeling = ref('Blank')
+const bubbleText = ref('...')
 
-  if (!base) return ''
-  return base.charAt(0).toUpperCase() + base.slice(1)
+onMounted(() => {
+  fetchEncouragement('Blank')
 })
 
-const bubbleText = ref("👋 Hi, I’m Veggie!") // fallback text
-
-async function fetchMascotWords() {
+const mascotPath = computed(() => {
   try {
-    const resp = await axios.get(`${baseURL}/mascotWords`, {
-      params: { feeling: imageName.value }
-    })
+    return new URL(`../assets/mascot/${currentFeeling.value}.png`, import.meta.url).href
+  } catch (e) {
+    return new URL(`../assets/mascot/Blank.png`, import.meta.url).href
+  }
+})
+
+async function fetchEncouragement(feeling) {
+  try {
+    const resp = await axios.get(`${baseURL}/mascotWords`, { params: { feeling } })
     const data = resp?.data ?? {}
-    // Flask returns {feeling, encourageWords: [...]}
     if (Array.isArray(data.encourageWords) && data.encourageWords.length > 0) {
       bubbleText.value = data.encourageWords[0]
+    } else {
+      bubbleText.value = "👋 Hi, I’m Veggie!"
     }
+    currentFeeling.value = feeling
   } catch (err) {
-    console.error("Failed to fetch mascot words:", err)
+    console.error('Failed to fetch encouragement:', err)
+    bubbleText.value = "👋 Hi, I’m Veggie!"
+    currentFeeling.value = 'Blank'
   }
 }
 
-onMounted(fetchMascotWords)
+async function randomiseFeeling() {
+  try {
+    const resp = await axios.get(`${baseURL}/encouragementAll`)
+    const rows = resp?.data?.rows || []
+    if (!rows.length) return
+
+    const randomRow = rows[Math.floor(Math.random() * rows.length)]
+    const feeling = randomRow.feeling || 'Blank'
+    const words = randomRow.encourageWords || 'Stay positive!'
+
+    if (feeling === 'Blank') {
+      await fetchEncouragement('Blank')
+    } else {
+      currentFeeling.value = feeling
+      bubbleText.value = words
+    }
+  } catch (err) {
+    console.error('Failed to fetch encouragements:', err)
+  }
+}
 </script>
 
 <style scoped>
-/* Page background */
 .home {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  background: radial-gradient(
-    120% 120% at 50% 0%,
-    #b8d7ff 0%,
-    #a8c5ff 20%,
-    #b7b2ff 45%,
-    #caa8ff 70%,
-    #c3a0ff 100%
-  );
   padding: 24px;
   box-sizing: border-box;
 }
 
-/* Card container */
 .onboard-card {
   width: 100%;
   max-width: 360px;
@@ -96,31 +121,46 @@ onMounted(fetchMascotWords)
   color: #ffffff;
 }
 
-/* Wrap mascot + bubble */
 .avatar-wrapper {
   display: flex;
   justify-content: center;
   margin-bottom: 20px;
 }
 
-/* Image without circle */
 .avatar-container {
   position: relative;
   display: inline-block;
+  cursor: pointer;
 }
 
 .avatar {
-  width: 160px;
+  width: 220px;
   height: auto;
   display: block;
 }
 
-/* Speech bubble top-left */
+/* Bounce continuously on hover */
+.avatar-container:hover .avatar {
+  animation: bounce 0.8s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-15px);
+  }
+  60% {
+    transform: translateY(-8px);
+  }
+}
+
 .speech-bubble {
   position: absolute;
-  top: -20px;
-  left: -60px;
-  max-width: 140px;
+  top: -5px;
+  left: -30px;
+  max-width: 160px;
   background: #fff;
   color: #333;
   padding: 8px 12px;
@@ -130,18 +170,16 @@ onMounted(fetchMascotWords)
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-/* Tail pointing right */
 .speech-bubble::after {
   content: "";
   position: absolute;
-  right: -8px;
-  top: 20px;
-  border-width: 8px;
+  right: -6px;
+  top: 12px;
+  border-width: 6px;
   border-style: solid;
   border-color: transparent transparent transparent #fff;
 }
 
-/* Intro text */
 .intro {
   font-size: 14px;
   line-height: 1.6;
@@ -150,7 +188,6 @@ onMounted(fetchMascotWords)
   color: rgba(255, 255, 255, 0.95);
 }
 
-/* Pager dots */
 .dots {
   display: flex;
   gap: 8px;
@@ -169,10 +206,9 @@ onMounted(fetchMascotWords)
   transform: scale(1.05);
 }
 
-/* Larger screens */
 @media (min-width: 420px) {
   .avatar {
-    width: 180px;
+    width: 260px;
   }
   .intro {
     font-size: 15px;
