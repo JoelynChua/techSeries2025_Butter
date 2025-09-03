@@ -1,5 +1,8 @@
+// main.js (or src/main.ts)
 import { createApp } from 'vue'
 import App from './App.vue'
-import './assets/main.css'
+import router from './router/index.js' // adjust the path if needed
 
-createApp(App).mount('#app')
+createApp(App)
+  .use(router)          // <-- critical
+  .mount('#app')
