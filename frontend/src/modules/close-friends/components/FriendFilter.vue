@@ -18,8 +18,8 @@
     <!-- tabs: bubbly pastel pills -->
     <div class="flex flex-wrap gap-2">
       <button :class="pill('all')"       @click="emit('update:tab', 'all')"> All</button>
-      <button :class="pill('active')"    @click="emit('update:tab', 'active')">🟢 Active</button>
-      <button :class="pill('pending')"   @click="emit('update:tab', 'pending')">🕒 Pending</button>
+      <!-- <button :class="pill('active')"    @click="emit('update:tab', 'active')">🟢 Active</button>
+      <button :class="pill('pending')"   @click="emit('update:tab', 'pending')">🕒 Pending</button> -->
       <button :class="pill('emergency')" @click="emit('update:tab', 'emergency')">🚨 Emergency</button>
     </div>
   </div>

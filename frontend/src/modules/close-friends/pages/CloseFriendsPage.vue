@@ -2,8 +2,8 @@
 import { ref, computed, onMounted } from 'vue'
 import ArcadeHeader from '../components/ArcadeHeader.vue'
 import FriendFilter from '../components/FriendFilter.vue'
-import FriendForm from '../components/FriendForm.vue'
 import FriendTile from '../components/FriendTile.vue'
+import AddFriendModal from '../components/AddFriendsModal.vue' // ← ensure filename matches
 import * as api from '../__mocks__/friends.mock.js'
 
 const friends = ref([])
@@ -24,14 +24,15 @@ onMounted(fetchFriends)
 
 const filteredFriends = computed(() => {
   let list = [...friends.value]
-  if (tab.value === 'active') list = list.filter(f => f.status === 'active')
-  if (tab.value === 'pending') list = list.filter(f => f.status === 'pending')
-  if (tab.value === 'emergency') list = list.filter(f => f.emergencyContact)
+
+  // if (tab.value === 'active') list = list.filter(f => f.status === 'active')
+  // if (tab.value === 'pending') list = list.filter(f => f.status === 'pending')
+  if (tab.value === 'emergency') list = list.filter(f => !!f.emergencycontact)
+
   if (query.value) {
     const q = query.value.toLowerCase()
     list = list.filter(f =>
-      f.name.toLowerCase().includes(q) ||
-      (f.handle || '').toLowerCase().includes(q) ||
+      (f.username || '').toLowerCase().includes(q) ||
       (f.relationship || '').toLowerCase().includes(q) ||
       ((f.tags || []).join(',').toLowerCase().includes(q))
     )
@@ -39,12 +40,20 @@ const filteredFriends = computed(() => {
   return list
 })
 
-function openAddForm () { formMode.value = 'add'; selectedFriend.value = null; showForm.value = true }
+function openAddForm () {
+  formMode.value = 'add'
+  selectedFriend.value = null
+  showForm.value = true
+}
 function closeForm () { showForm.value = false }
 
 async function saveFriend (payload) {
-  if (formMode.value === 'add') await api.createFriend(payload)
-  else if (formMode.value === 'edit' && selectedFriend.value) await api.updateFriend(selectedFriend.value.id, payload)
+  // payload: { friendofuid, username, relationship, tags, emergencycontact }
+  if (formMode.value === 'add') {
+    await api.createFriend(payload)
+  } else if (formMode.value === 'edit' && selectedFriend.value) {
+    await api.updateFriend(selectedFriend.value.id, payload)
+  }
   showForm.value = false
   await fetchFriends()
 }
@@ -53,15 +62,12 @@ async function removeFriend (id) { await api.deleteFriend(id); await fetchFriend
 async function updateFriend ({ id, patch }) { await api.updateFriend(id, patch); await fetchFriends() }
 async function approveFriend (id) { await api.approveInvite(id); await fetchFriends() }
 async function resendInvite (id) { await api.resendInvite(id) }
-async function revokeInvite (id) { await api.revokeInvite(id); await fetchFriends() }
+async function revokeInvite (id) { await api.revokeInvite(id) }
 
-function onCloseHeader () {
-  
-}
+function onCloseHeader () {}
 </script>
 
 <template>
- 
   <div class="min-h-screen relative overflow-x-hidden">
     <div class="absolute inset-0 bg-gradient-to-b from-sky-200 to-sky-300"></div>
     <div
@@ -75,18 +81,26 @@ function onCloseHeader () {
       "
     ></div>
 
- 
     <div class="relative mx-auto max-w-5xl px-5 py-6">
       <ArcadeHeader
         title="Close Friends"
         :level="49"
         :gems="0"
-        :edge="none"
+        :edge="'none'"
         :coins="18490"
         @close="onCloseHeader"
       />
 
-    
+      <!-- Add Friend -->
+      <div class="mt-4 flex justify-end">
+        <button
+          @click="openAddForm"
+          class="px-4 py-2 rounded-xl bg-sky-500 text-white hover:bg-sky-600 transition"
+        >
+          + Add Friend
+        </button>
+      </div>
+
       <div class="mt-6 rounded-3xl bg-white/90 ring-1 ring-white shadow-[0_16px_36px_-18px_rgba(2,132,199,0.35)] p-4 backdrop-blur">
         <FriendFilter
           :activeTab="tab"
@@ -95,7 +109,6 @@ function onCloseHeader () {
           @update:query="query = $event"
         />
       </div>
-
 
       <div class="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         <FriendTile
@@ -110,17 +123,15 @@ function onCloseHeader () {
         />
       </div>
 
-   
-      <div v-if="!loading && filteredFriends.length === 0"
-           class="mt-12 text-center text-sky-900/70 text-lg font-medium">
+      <div v-if="!loading && filteredFriends.length === 0" class="mt-12 text-center text-sky-900/70 text-lg font-medium">
         (｡•́︿•̀｡) No friends yet — add someone you trust.
       </div>
       <div v-if="loading" class="mt-12 text-center text-sky-900/60 animate-pulse">
         Loading buddies…
       </div>
 
-   
-      <FriendForm
+      <!-- Modal -->
+      <AddFriendModal
         v-if="showForm"
         :mode="formMode"
         :friend="selectedFriend"
