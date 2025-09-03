@@ -641,6 +641,195 @@ def update_mood_metric():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# Options to build the quiz
+# ---------- Quiz Question Routes ----------
+@app.route("/quizqn", methods=["GET"])
+def get_quizqn():
+    """
+    Get quizqn entries
+    ---
+    tags:
+      - quizqn
+    parameters:
+      - in: query
+        name: id
+        type: integer
+        required: false
+        description: Return a single row by id
+        example: 123
+    responses:
+      200:
+        description: Row or list of rows
+      404:
+        description: Row not found (when id provided)
+      500:
+        description: Server error
+    """
+    try:
+        cols = ["id", "sleephours", "workhours", "exercisehours", "sleepquality", "mood", "connectwithfamily"]
+
+        q_id = request.args.get("id", type=int)
+
+        # If id provided → fetch single row
+        if q_id is not None:
+            resp = supabase.table("quizqn").select(",".join(cols)).eq("id", q_id).limit(1).execute()
+            data = _exec_data(resp)
+            if not data:
+                return jsonify({"error": "Row not found"}), 404
+            return jsonify({"row": data[0]}), 200
+
+        # Otherwise → fetch all rows
+        resp = supabase.table("quizqn").select(",".join(cols)).order("id", desc=True).execute()
+        rows = _exec_data(resp) or []
+        return jsonify({"rows": rows, "count": len(rows)}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/labelOptions", methods=["GET"])
+def get_fields():
+    """
+    Get label options by field_name
+    ---
+    tags:
+      - labelOptions
+    parameters:
+      - in: query
+        name: field_name
+        type: string
+        required: true
+        description: Return rows that match this field_name
+        example: sleepquality
+    responses:
+      200:
+        description: List of matching rows
+      400:
+        description: Missing field_name
+      404:
+        description: No rows found
+      500:
+        description: Server error
+    """
+    try:
+        cols = ["id", "field_name", "labelvalue"]
+
+        field_name = request.args.get("field_name")
+        if not field_name:
+            return jsonify({"error": "Missing field_name"}), 400
+
+        resp = (
+            supabase.table("label_options")
+            .select(",".join(cols))
+            .eq("field_name", field_name)
+            .execute()
+        )
+        rows = _exec_data(resp) or []
+
+        if not rows:
+            return jsonify({"error": "No rows found"}), 404
+
+        return jsonify({"rows": rows, "count": len(rows)}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+
+@app.route("/rangeConfig", methods=["GET"])
+def get_range_config():
+    """
+    Get range configuration entries by field_name
+    ---
+    tags:
+      - rangeConfig
+    parameters:
+      - in: query
+        name: field_name
+        type: string
+        required: true
+        description: Return rows that match this field_name
+        example: workhours
+    responses:
+      200:
+        description: List of matching rows
+      400:
+        description: Missing field_name
+      404:
+        description: No rows found
+      500:
+        description: Server error
+    """
+    try:
+        cols = ["id", "field_name", "min_value", "max_value", "step_value"]
+
+        field_name = request.args.get("field_name")
+        if not field_name:
+            return jsonify({"error": "Missing field_name"}), 400
+
+        resp = (
+            supabase.table("range_config")
+            .select(",".join(cols))
+            .eq("field_name", field_name)
+            .execute()
+        )
+        rows = _exec_data(resp) or []
+
+        if not rows:
+            return jsonify({"error": "No rows found"}), 404
+
+        return jsonify({"rows": rows, "count": len(rows)}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/mascotWords", methods=["GET"])
+def get_encouragement():
+    """
+    Get encouragement words by feeling
+    ---
+    tags:
+      - encouragement
+    parameters:
+      - in: query
+        name: feeling
+        type: string
+        required: true
+        description: Return encouragement words that match this feeling
+        example: sad
+    responses:
+      200:
+        description: Matching encouragement words
+      400:
+        description: Missing feeling
+      404:
+        description: No rows found
+      500:
+        description: Server error
+    """
+    try:
+        feeling = request.args.get("feeling")
+        if not feeling:
+            return jsonify({"error": "Missing feeling"}), 400
+
+        resp = (
+            supabase.table("mascot")  # <-- replace with your actual table name
+            .select("id, feeling, encourageWords")
+            .eq("feeling", feeling)
+            .execute()
+        )
+        rows = _exec_data(resp) or []
+
+        if not rows:
+            return jsonify({"error": "No rows found"}), 404
+
+        # Return only encourageWords if you want it simplified
+        words = [row["encourageWords"] for row in rows if row.get("encourageWords")]
+
+        return jsonify({"feeling": feeling, "encourageWords": words}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 
 if __name__ == "__main__":
