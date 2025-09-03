@@ -2,12 +2,10 @@
   <div
     class="quiz-background min-h-screen flex items-center justify-center p-4"
   >
-    <!-- Background gradient -->
     <div
       class="absolute inset-0 bg-gradient-to-b from-sky-200 to-sky-300"
     ></div>
 
-    <!-- Dotted overlay -->
     <div
       class="pointer-events-none absolute inset-0 opacity-20"
       style="
@@ -350,7 +348,7 @@ input[type="range"]::-webkit-slider-thumb {
 
 /* Option buttons */
 .option-btn {
-  padding: 12px 48px; /* larger width */
+  padding: 12px 48px; 
   border: 1px solid #cce6ff;
   border-radius: 16px;
   background: #ffffff;
@@ -371,7 +369,7 @@ input[type="range"]::-webkit-slider-thumb {
   color: white;
 }
 
-/* * Slider spacing */
+/* Slider spacing */
 .slider-wrapper {
   position: relative;
   width: 100%;
@@ -380,7 +378,7 @@ input[type="range"]::-webkit-slider-thumb {
 
 .slider-value-tooltip {
   position: absolute;
-  top: -2.5rem; /* slightly closer to the slider */
+  top: -2.5rem; 
   transform: translateX(-50%);
   background: #3da8ff;
   color: white;

@@ -40,11 +40,7 @@
 <script setup>
 import { ref } from "vue";
 
-// --- IMPORTANT: Handling Your Image Assets ---
-// This function dynamically resolves the image paths from your `assets` folder.
-// Make sure your images are located at `src/assets/navbar/`.
 const getIconUrl = (name) => {
-  // Note: Using vite, the path needs to be relative to the file.
   return new URL(`../assets/navbar/${name}.png`, import.meta.url).href;
 };
 
@@ -73,15 +69,11 @@ const navItems = ref([
 </script>
 
 <style scoped>
-/* The `grayscale` class is applied to the inactive icons.
-  You can customize the filter here, for example, to also reduce brightness.
-*/
 .grayscale {
   filter: grayscale(100%);
 }
 
 .icon-active-blue {
-  /* This filter chain converts black (#000) to blue-600 (#2563eb) */
   filter: invert(38%) sepia(98%) saturate(1583%) hue-rotate(198deg)
     brightness(97%) contrast(98%);
 }

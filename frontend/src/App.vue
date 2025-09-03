@@ -1,5 +1,4 @@
 <template>
-  <!-- <CloseFriendsPage /> -->
   <div>
     <router-view />
     <BottomNavBar />
