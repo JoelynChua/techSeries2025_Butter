@@ -336,6 +336,27 @@ def update_user_profile():
 
     return jsonify(_row_to_public_user(updated)), 200
 
+# Get all users
+@app.route("/users", methods=["GET"])
+def get_all_users():
+    """
+    Get all users (public info only)
+    ---
+    tags:
+      - users
+    responses:
+      200:
+        description: List of all users
+      500:
+        description: Server error
+    """
+    try:
+        resp = supabase.table(users_table).select("*").order("userId", desc=True).execute()
+        rows = _exec_data(resp) or []
+        public_rows = [_row_to_public_user(r) for r in rows if r]
+        return jsonify({"rows": public_rows, "count": len(public_rows)}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # ---------- Mood Metric Routes ----------
 @app.route("/moodMetric", methods=["GET"])
