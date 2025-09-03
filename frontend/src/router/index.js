@@ -1,11 +1,15 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import closeFriendsRoutes from '../modules/close-friends/routes.js'
+import QuizPage from '../modules/QuizPage.vue'
 
 // Lazy-load to avoid bundling issues
 const HomePage = () => import('../modules/homepage.vue')
 const CloseFriendPage = () => import('../modules/close-friends/pages/CloseFriendsPage.vue')
 
 const routes = [
+  ...closeFriendsRoutes,
+  {
+    path: '/quiz', name: 'Quiz',component: QuizPage},
   { path: '/', name: 'Home', component: HomePage },
   { path: '/homepage', redirect: { name: 'Home' } },
 

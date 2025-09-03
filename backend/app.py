@@ -416,6 +416,7 @@ def create_mood_metric():
               type: integer
               example: 7
             exerciseHours:
+            exerciseHours:
               type: integer
               example: 1
             workingHrs:

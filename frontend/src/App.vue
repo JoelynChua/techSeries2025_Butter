@@ -3,11 +3,15 @@
     <main class="phone-screen">
       <router-view />
     </main>
+  <div>
+    <router-view />
+    <BottomNavBar />
   </div>
 </template>
 
 <script setup>
-// nothing special needed here
+// no need to import individual pages here
+import BottomNavBar from "./components/navbar.vue";
 </script>
 
 <style>
