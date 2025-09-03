@@ -7,7 +7,7 @@
              shadow-[0_10px_26px_-12px_rgba(2,132,199,0.7)] ring-2 ring-white
              pt-[env(safe-area-inset-top)]"
     >
-      <div class="flex items-center gap-2">
+      <!-- <div class="flex items-center gap-2">
         <div
           class="grid h-11 w-11 place-items-center rounded-full border-4 border-white
                  bg-gradient-to-b from-sky-200 to-sky-400 text-sky-900 font-extrabold
@@ -16,7 +16,7 @@
         >
           {{ level }}
         </div>
-      </div>
+      </div> -->
 
      
       <h1
@@ -29,7 +29,7 @@
    
       <div class="flex items-center gap-2 md:gap-3">
   
-        <button
+        <!-- <button
           class="flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5
                  ring-2 ring-white shadow-[0_6px_14px_-6px_rgba(2,132,199,0.6)]
                  hover:scale-105 transition cursor-pointer focus:outline-none focus-visible:ring-4 focus-visible:ring-white/70"
@@ -42,10 +42,10 @@
             aria-hidden="true"
           >◆</span>
           <span class="min-w-[2ch] text-sky-900 font-extrabold">{{ gems }}</span>
-        </button>
+        </button> -->
 
-        <!-- Coin pill -->
-        <button
+      
+        <!-- <button
           class="flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5
                  ring-2 ring-white shadow-[0_6px_14px_-6px_rgba(2,132,199,0.6)]
                  hover:scale-105 transition cursor-pointer focus:outline-none focus-visible:ring-4 focus-visible:ring-white/70"
@@ -58,16 +58,16 @@
             aria-hidden="true"
           >⭕</span>
           <span class="min-w-[2ch] text-sky-900 font-extrabold">{{ coins.toLocaleString() }}</span>
-        </button>
+        </button> -->
 
-   
+<!--    
         <button
           class="grid h-9 w-9 place-items-center rounded-full bg-emerald-400 text-white text-xl font-extrabold
                  ring-2 ring-white shadow hover:scale-105 transition focus:outline-none focus-visible:ring-4 focus-visible:ring-white/70"
           @click="$emit('add')"
           title="Add Friend"
           aria-label="Add Friend"
-        >+</button>
+        >+</button> -->
       </div>
     </div>
 

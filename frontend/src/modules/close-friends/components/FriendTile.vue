@@ -97,18 +97,18 @@
         </button>
 
         <template v-else>
-          <button
+          <!-- <button
             class="rounded-full bg-emerald-100 text-emerald-700 text-sm font-semibold py-2 hover:bg-emerald-200"
             @click="$emit('approve', friend.id)"
           >
             Approve
-          </button>
-            <button
+          </button> -->
+            <!-- <button
               class="rounded-full bg-indigo-100 text-indigo-700 text-sm font-semibold py-2 hover:bg-indigo-200"
               @click="$emit('resend', friend.id)"
             >
               Resend
-            </button>
+            </button> -->
           <button
             class="col-span-2 rounded-full bg-rose-100 text-rose-700 text-sm font-semibold py-2 hover:bg-rose-200"
             @click="$emit('revoke', friend.id)"
@@ -117,12 +117,12 @@
           </button>
         </template>
 
-        <button
+        <!-- <button
           class="relative z-10 col-span-2 rounded-full bg-[linear-gradient(180deg,#5DD6FF_0%,#2EB8FF_100%)] text-white text-sm font-semibold py-2 shadow hover:shadow-md"
           @click="$emit('update', { id: friend.id, patch: { opened: true } })"
         >
           Open
-        </button>
+        </button> -->
       </div>
     </div>
   </div>
