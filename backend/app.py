@@ -30,7 +30,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 USERS_TABLE = "users"       # userId (PK, BIGINT auto), email, password, username, mobile, friendList (array/json)
-MOOD_TABLE  = "moodMetric"  # id (BIGINT PK), sleepHours (SMALLINT), excerciseHours (SMALLINT),
+MOOD_TABLE  = "moodMetric"  # id (BIGINT PK), sleepHours (SMALLINT), exerciseHours (SMALLINT),
                             # workingHrs (SMALLINT), mood (TEXT), sleepQuality (TEXT),
                             # userId (SMALLINT), created_timestamp (TIMESTAMP)
 
@@ -512,7 +512,7 @@ def create_mood_metric():
             sleepHours:
               type: integer
               example: 7
-            excerciseHours:
+            exerciseHours:
               type: integer
               example: 1
             workingHrs:
@@ -546,7 +546,7 @@ def create_mood_metric():
     payload = {
         "userId": user_id,
         "sleepHours": data.get("sleepHours"),
-        "excerciseHours": data.get("excerciseHours"),
+        "exerciseHours": data.get("exerciseHours"),
         "workingHrs": data.get("workingHrs"),
         "mood": data.get("mood"),
         "sleepQuality": data.get("sleepQuality"),
@@ -591,7 +591,7 @@ def update_mood_metric():
             sleepHours:
               type: integer
               example: 7
-            excerciseHours:
+            exerciseHours:
               type: integer
               example: 2
             workingHrs:
@@ -627,7 +627,7 @@ def update_mood_metric():
     fields = {
         "userId": data.get("userId"),
         "sleepHours": data.get("sleepHours"),
-        "excerciseHours": data.get("excerciseHours"),
+        "exerciseHours": data.get("exerciseHours"),
         "workingHrs": data.get("workingHrs"),
         "mood": data.get("mood"),
         "sleepQuality": data.get("sleepQuality"),

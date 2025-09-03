@@ -8,10 +8,7 @@ const HomePage = () => import('../modules/homepage.vue') // e.g. '../pages/homep
 const routes = [
   ...closeFriendsRoutes,
   {
-    path: '/quiz',
-    name: 'Quiz',
-    component: QuizPage
-  }
+    path: '/quiz', name: 'Quiz',component: QuizPage},
   { path: '/', name: 'Home', component: HomePage },
   // Optional: allow /homepage URL too
   { path: '/homepage', redirect: { name: 'Home' } },

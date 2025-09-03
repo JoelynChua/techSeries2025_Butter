@@ -10,12 +10,15 @@
       </h2>
 
       <div class="space-y-12 min-h-[350px]">
-        <div v-if="isLoading" class="text-center pt-16">
+        <div
+          v-if="isLoading"
+          class="flex items-center justify-center h-full pt-16"
+        >
           <p class="text-2xl text-slate-600">Loading Quiz...</p>
         </div>
 
         <div v-if="!isLoading && currentQuestion && !showResults">
-          <p class="block font-semibold text-slate-700 mb-6 text-2xl">
+          <p class="block font-semibold text-slate-700 mb-14 text-2xl">
             {{ currentQuestionIndex + 1 }}. {{ currentQuestion.question_text }}
           </p>
 
@@ -71,12 +74,27 @@
           </div>
         </div>
 
-        <div v-if="showResults" class="text-center pt-16">
+        <div v-if="showResults" class="text-center">
           <h3 class="text-3xl font-bold text-slate-800 mb-6">
-            Quiz Submitted! ✅
+            Your Mood Summary
           </h3>
-          <p class="text-xl text-slate-600">
-            Thank you for completing your daily check-in.
+          <p
+            v-if="answers.sleephours !== undefined"
+            class="text-xl text-slate-700 mb-2"
+          >
+            Sleep: {{ answers.sleephours }} hrs
+          </p>
+          <p
+            v-if="answers.exercisehours !== undefined"
+            class="text-xl text-slate-700 mb-2"
+          >
+            Exercise: {{ answers.exercisehours }} hrs
+          </p>
+          <p v-if="answers.mood" class="text-xl text-slate-700 mb-2">
+            Mood: {{ answers.mood }}
+          </p>
+          <p v-if="answers.connectwithfamily" class="text-xl text-slate-700">
+            Connected with family/friends: {{ answers.connectwithfamily }}
           </p>
         </div>
       </div>
@@ -105,6 +123,8 @@
 <script>
 import axios from "axios";
 
+const baseURL = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+
 export default {
   name: "QuizCard",
   data() {
@@ -126,131 +146,129 @@ export default {
     isAnswered() {
       if (!this.currentQuestion) return false;
       const currentAnswer = this.answers[this.currentQuestion.field_name];
-      // Check that the answer is not null or an empty string
       return currentAnswer !== null && currentAnswer !== "";
+    },
+  },
+  methods: {
+    async fetchQuizConfig() {
+      this.isLoading = true;
+      try {
+        const questionsRes = await axios.get(`${baseURL}/quizqn?id=1`);
+        if (!questionsRes.data || !questionsRes.data.row) {
+          throw new Error("Quiz questions could not be loaded from the API.");
+        }
+        const questionTexts = questionsRes.data.row;
+
+        const fieldOrder = [
+          "sleephours",
+          "sleepquality",
+          "exercisehours",
+          "workhours",
+          "mood",
+          "connectwithfamily",
+        ];
+
+        let initialQuestions = fieldOrder.map((field) => ({
+          field_name: field,
+          question_text: questionTexts[field],
+          type: null,
+        }));
+
+        const configPromises = initialQuestions.map((q) => {
+          if (
+            ["sleephours", "workhours", "exercisehours"].includes(q.field_name)
+          ) {
+            return axios.get(
+              `${baseURL}/rangeConfig?field_name=${q.field_name}`
+            );
+          }
+          if (
+            ["sleepquality", "mood", "connectwithfamily"].includes(q.field_name)
+          ) {
+            return axios.get(
+              `${baseURL}/labelOptions?field_name=${q.field_name}`
+            );
+          }
+          return Promise.resolve(null);
+        });
+
+        const configResults = await Promise.all(configPromises);
+
+        const finalQuizStructure = initialQuestions.map((q, index) => {
+          const result = configResults[index];
+          if (!result || !result.data.rows) return q;
+
+          const configData = result.data.rows;
+
+          if (q.field_name.includes("hours")) {
+            q.type = "range";
+            q.config = {
+              min: configData[0].min_value,
+              max: configData[0].max_value,
+              step: configData[0].step_value,
+            };
+          } else {
+            q.type = "options";
+            q.options = configData[0].labelvalue;
+          }
+          return q;
+        });
+
+        this.quiz = finalQuizStructure.filter((q) => q.type);
+
+        this.quiz.forEach((q) => {
+          if (q.type === "range") {
+            this.answers[q.field_name] = q.config.min;
+          } else {
+            this.answers[q.field_name] = "";
+          }
+        });
+      } catch (error) {
+        console.error("Failed to load quiz configuration:", error);
+      } finally {
+        this.isLoading = false;
+      }
+    },
+    nextQuestion() {
+      if (this.isLastQuestion) {
+        this.submitQuiz();
+      } else {
+        this.currentQuestionIndex++;
+      }
+    },
+    prevQuestion() {
+      if (this.currentQuestionIndex > 0) this.currentQuestionIndex--;
+    },
+    async submitQuiz() {
+      const payload = {
+        userId: 1, // to be replaced with actual user ID
+        sleepHours: this.answers.sleephours,
+        sleepQuality: this.answers.sleepquality,
+        exerciseHours: this.answers.exercisehours,
+        workingHrs: this.answers.workhours,
+        mood: this.answers.mood,
+        connectwithfamily: this.answers.connectwithfamily,
+        created_timestamp: new Date().toISOString(),
+      };
+      try {
+        await axios.post(`${baseURL}/moodMetric`, payload);
+        this.showResults = true;
+      } catch (error) {
+        console.error("Failed to submit quiz:", error);
+        alert("There was an error submitting your quiz. Please try again.");
+      }
+    },
+    sliderTooltip(value, min, max, sliderRef) {
+      if (!sliderRef || value === undefined) return "0px";
+      const percent = (Number(value) - min) / (max - min);
+      const thumbWidth = 38;
+      const sliderWidth = sliderRef.offsetWidth;
+      const left = percent * (sliderWidth - thumbWidth) + thumbWidth / 2;
+      return `${left}px`;
     },
   },
   async mounted() {
     await this.fetchQuizConfig();
-  },
-  methods: {
-    methods: {
-      async fetchQuizConfig() {
-        this.isLoading = true;
-        try {
-          const [questionsRes, rangesRes, labelsRes] = await Promise.all([
-            axios.get("/api/questions"),
-            axios.get("/api/range_config"),
-            axios.get("/api/label_options"), // Fetches from your new label_options table
-          ]);
-
-          const questionsData = (questionsRes.data.rows ||
-            questionsRes.data)[0];
-          const rangesData = rangesRes.data.rows || rangesRes.data;
-          const labelsData = labelsRes.data.rows || labelsRes.data;
-
-          if (!Array.isArray(rangesData) || !Array.isArray(labelsData)) {
-            throw new Error("API data is not in the expected array format.");
-          }
-
-          const rangesMap = rangesData.reduce((acc, item) => {
-            acc[item.field_name] = item;
-            return acc;
-          }, {});
-
-          // --- THIS IS THE SIMPLIFIED PART ---
-          // We no longer need to loop and group the labels.
-          // We just map the field_name to its already-existing array of options.
-          const labelsMap = labelsData.reduce((acc, item) => {
-            acc[item.field_name] = item.labelvalue; // 'labelvalue' is now already an array
-            return acc;
-          }, {});
-
-          const fieldOrder = [
-            "sleephours",
-            "sleepquality",
-            "exercisehours",
-            "workhours",
-            "mood",
-            "connectwithfamily",
-          ];
-
-          const finalQuizStructure = fieldOrder.map((field) => {
-            const questionObj = {
-              field_name: field,
-              question_text: questionsData[field],
-            };
-
-            if (field in rangesMap) {
-              questionObj.type = "range";
-              questionObj.config = {
-                min: rangesMap[field].min_value,
-                max: rangesMap[field].max_value,
-                step: rangesMap[field].step_value,
-              };
-            } else if (field in labelsMap) {
-              questionObj.type = "options";
-              // The options are now directly available from the map
-              questionObj.options = labelsMap[field];
-            }
-            return questionObj;
-          });
-
-          this.quiz = finalQuizStructure;
-
-          this.quiz.forEach((q) => {
-            if (q.type === "range") {
-              this.$set(this.answers, q.field_name, q.config.min);
-            } else {
-              this.$set(this.answers, q.field_name, "");
-            }
-          });
-        } catch (error) {
-          console.error("Failed to load quiz configuration:", error);
-        } finally {
-          this.isLoading = false;
-        }
-      },
-      nextQuestion() {
-        if (this.isLastQuestion) {
-          this.submitQuiz();
-        } else {
-          this.currentQuestionIndex++;
-        }
-      },
-      prevQuestion() {
-        if (this.currentQuestionIndex > 0) {
-          this.currentQuestionIndex--;
-        }
-      },
-      async submitQuiz() {
-        // Create the payload for your POST request, matching backend field names
-        const payload = {
-          userId: 1, // Replace with actual logged-in user ID
-          sleepHours: this.answers.sleephours,
-          sleepQuality: this.answers.sleepquality,
-          exerciseHours: this.answers.exercisehours,
-          workingHrs: this.answers.workhours,
-          mood: this.answers.mood,
-        };
-
-        try {
-          await axios.post("/moodMetric", payload);
-          this.showResults = true;
-        } catch (error) {
-          console.error("Failed to submit quiz:", error);
-          alert("There was an error submitting your quiz. Please try again.");
-        }
-      },
-      sliderTooltip(value, min, max, sliderRef) {
-        if (!sliderRef || value === undefined) return "0px";
-        const percent = (Number(value) - min) / (max - min);
-        const thumbWidth = 38;
-        const sliderWidth = sliderRef.offsetWidth;
-        const left = percent * (sliderWidth - thumbWidth) + thumbWidth / 2;
-        return `${left}px`;
-      },
-    },
   },
 };
 </script>
@@ -271,7 +289,6 @@ export default {
   font-weight: bold;
   padding: 0.2rem 0.5rem;
   border-radius: 0.5rem;
-  pointer-events: none;
 }
 
 /* Sliders */
@@ -298,7 +315,7 @@ input[type="range"]::-webkit-slider-thumb {
 
 /* Option buttons */
 .option-btn {
-  padding: 18px 64px;
+  padding: 18px 64px; /* larger width */
   border: 1px solid #cce6ff;
   border-radius: 16px;
   background: #ffffff;
