@@ -209,7 +209,8 @@ function onCloseHeader () {}
 
       <AddFriendModal
         v-if="showForm"
-        :mode="formMode"
+        :mode="'add'"
+  :alreadyAddedIds="friends.map(f => String(f.friendofuid))"
         :friend="selectedFriend"
         @save="saveFriend"
         @close="closeForm"
