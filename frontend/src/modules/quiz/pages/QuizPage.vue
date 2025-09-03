@@ -3,13 +3,13 @@
     class="fixed inset-0 bg-sky-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
   >
     <div
-      class="relative w-full max-w-2xl overflow-hidden rounded-[28px] p-10 ring-1 ring-sky-100 shadow-[0_18px_48px_-22px_rgba(24,39,75,0.35)] bg-gradient-to-b from-sky-50 to-sky-100 text-xl"
+      class="relative w-full max-w-xl overflow-hidden rounded-[28px] p-6 ring-1 ring-sky-100 shadow-[0_18px_48px_-22px_rgba(24,39,75,0.35)] bg-gradient-to-b from-sky-50 to-sky-100 text-xl"
     >
-      <h2 class="text-3xl font-bold text-slate-800 mb-10 text-center">
+      <h2 class="text-3xl font-bold text-slate-800 mb-6 text-center">
         Daily Quiz
       </h2>
 
-      <div class="space-y-12 min-h-[350px]">
+      <div class="h-[450px] flex flex-col justify-between">
         <div
           v-if="isLoading"
           class="flex items-center justify-center h-full pt-16"
@@ -17,7 +17,7 @@
           <p class="text-2xl text-slate-600">Loading Quiz...</p>
         </div>
 
-        <div v-if="!isLoading && currentQuestion && !showResults">
+        <div v-if="!isLoading && currentQuestion && !showResults" class="flex-1 flex flex-col justify-center">
           <p class="block font-semibold text-slate-700 mb-14 text-2xl">
             {{ currentQuestionIndex + 1 }}. {{ currentQuestion.question_text }}
           </p>
@@ -51,7 +51,7 @@
               <span>{{ currentQuestion.config.min }}</span>
               <span>{{ currentQuestion.config.max }}</span>
             </div>
-            <p class="text-3xl font-bold mt-6 text-center">
+            <p class="text-2xl font-bold mt-4 text-center">
               {{ answers[currentQuestion.field_name] }} hours
             </p>
           </div>
@@ -82,13 +82,22 @@
             v-if="answers.sleephours !== undefined"
             class="text-xl text-slate-700 mb-2"
           >
-            Sleep: {{ answers.sleephours }} hrs
+            Sleep Hours: {{ answers.sleephours }} hrs
+          </p>
+          <p v-if="answers.sleepquality" class="text-xl text-slate-700 mb-2">
+            Sleep Quality: {{ answers.sleepquality }}
           </p>
           <p
             v-if="answers.exercisehours !== undefined"
             class="text-xl text-slate-700 mb-2"
           >
             Exercise: {{ answers.exercisehours }} hrs
+          </p>
+          <p
+            v-if="answers.workhours !== undefined"
+            class="text-xl text-slate-700 mb-2"
+          >
+            Work Hours: {{ answers.workhours }} hrs
           </p>
           <p v-if="answers.mood" class="text-xl text-slate-700 mb-2">
             Mood: {{ answers.mood }}
@@ -315,13 +324,13 @@ input[type="range"]::-webkit-slider-thumb {
 
 /* Option buttons */
 .option-btn {
-  padding: 18px 64px; /* larger width */
+  padding: 12px 48px; /* larger width */
   border: 1px solid #cce6ff;
   border-radius: 16px;
   background: #ffffff;
   cursor: pointer;
   transition: all 0.2s;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   text-align: center;
 }
 
@@ -334,5 +343,24 @@ input[type="range"]::-webkit-slider-thumb {
 .option-btn:hover {
   background: #5ec4ff;
   color: white;
+}
+
+/* * Slider spacing */
+.slider-wrapper {
+  position: relative;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.slider-value-tooltip {
+  position: absolute;
+  top: -2.5rem; /* slightly closer to the slider */
+  transform: translateX(-50%);
+  background: #3da8ff;
+  color: white;
+  font-size: 0.9rem;
+  font-weight: bold;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.5rem;
 }
 </style>
