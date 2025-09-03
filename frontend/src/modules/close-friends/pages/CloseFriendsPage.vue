@@ -3,11 +3,16 @@ import { ref, computed, onMounted } from 'vue'
 import ArcadeHeader from '../components/ArcadeHeader.vue'
 import FriendFilter from '../components/FriendFilter.vue'
 import FriendTile from '../components/FriendTile.vue'
-import AddFriendModal from '../components/AddFriendsModal.vue' // ← ensure filename matches
-import * as api from '../__mocks__/friends.mock.js'
+import AddFriendModal from '../components/AddFriendsModal.vue'
+
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/,'')
+const OWNER_UID =
+  (localStorage.getItem('ownerUid') || localStorage.getItem('userId')) ||
+  (import.meta.env.VITE_OWNER_UID || '')
 
 const friends = ref([])
 const loading = ref(false)
+const friendsError = ref('')
 const query = ref('')
 const tab = ref('all')
 
@@ -15,24 +20,77 @@ const showForm = ref(false)
 const formMode = ref('add')
 const selectedFriend = ref(null)
 
+function friendRowsToUi(rows) {
+  return rows.map(r => ({
+    id: r.id ?? r.friendId ?? r.userId ?? Math.random().toString(36).slice(2),
+    username: r.username ?? '',
+    relationship: r.relationship ?? '',
+    tags: Array.isArray(r.tags) ? r.tags : [],
+    emergencycontact: !!(r.emergencycontact ?? r.emergencyContact),
+    email: r.email || '',
+    phone: r.phone || r.mobile || '',
+    // fields FriendTile may read
+    name: r.username ?? '',
+    handle: r.handle ?? '',
+    status: r.status ?? 'active',
+    emotions: r.emotions ?? { mood: 70, energy: 65, sleep: 60 },
+    avatar: r.avatar || 'https://picsum.photos/seed/friend/256/256',
+    emergencyContact: !!(r.emergencycontact ?? r.emergencyContact),
+  }))
+}
+
+function candidateFriendUrls() {
+  const urls = [`${API_BASE}/friends`]
+  if (OWNER_UID) {
+    urls.push(
+      `${API_BASE}/friends?userId=${encodeURIComponent(OWNER_UID)}`,
+      `${API_BASE}/friends?ownerUid=${encodeURIComponent(OWNER_UID)}`,
+      `${API_BASE}/friends?ownerId=${encodeURIComponent(OWNER_UID)}`,
+      `${API_BASE}/friends?friendofuid=${encodeURIComponent(OWNER_UID)}`
+    )
+  }
+  return urls
+}
+
+async function robustFetchFriends() {
+  const urls = candidateFriendUrls()
+  let lastError = ''
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { headers: { Accept: 'application/json' } })
+      if (!res.ok) { lastError = `HTTP ${res.status}`; continue }
+      const data = await res.json()
+      const rows = Array.isArray(data?.rows) ? data.rows : (Array.isArray(data) ? data : [])
+      return friendRowsToUi(rows)
+    } catch (e) {
+      lastError = e?.message || 'request failed'
+    }
+  }
+  throw new Error(lastError || 'No candidate URL succeeded')
+}
+
 async function fetchFriends () {
   loading.value = true
-  friends.value = await api.listFriends(query.value)
-  loading.value = false
+  friendsError.value = ''
+  try {
+    friends.value = await robustFetchFriends()
+  } catch (e) {
+    friends.value = []
+    friendsError.value = `Could not load friends (${e.message}). If your API requires a user id, set one in localStorage: ownerUid=123`
+    console.error('[friends] load failed:', e, { tried: candidateFriendUrls() })
+  } finally {
+    loading.value = false
+  }
 }
 onMounted(fetchFriends)
 
 const filteredFriends = computed(() => {
   let list = [...friends.value]
-
-  // if (tab.value === 'active') list = list.filter(f => f.status === 'active')
-  // if (tab.value === 'pending') list = list.filter(f => f.status === 'pending')
-  if (tab.value === 'emergency') list = list.filter(f => !!f.emergencycontact)
-
+  if (tab.value === 'emergency') list = list.filter(f => !!(f.emergencycontact ?? f.emergencyContact))
   if (query.value) {
     const q = query.value.toLowerCase()
     list = list.filter(f =>
-      (f.username || '').toLowerCase().includes(q) ||
+      (f.username || f.name || '').toLowerCase().includes(q) ||
       (f.relationship || '').toLowerCase().includes(q) ||
       ((f.tags || []).join(',').toLowerCase().includes(q))
     )
@@ -40,29 +98,45 @@ const filteredFriends = computed(() => {
   return list
 })
 
-function openAddForm () {
-  formMode.value = 'add'
-  selectedFriend.value = null
-  showForm.value = true
-}
+function openAddForm () { formMode.value = 'add'; selectedFriend.value = null; showForm.value = true }
 function closeForm () { showForm.value = false }
 
 async function saveFriend (payload) {
-  // payload: { friendofuid, username, relationship, tags, emergencycontact }
-  if (formMode.value === 'add') {
-    await api.createFriend(payload)
-  } else if (formMode.value === 'edit' && selectedFriend.value) {
-    await api.updateFriend(selectedFriend.value.id, payload)
-  }
-  showForm.value = false
-  await fetchFriends()
-}
+  try {
+    if (!payload.friendofuid) { alert('Pick a user from the list.'); return }
+    if (!payload.email) { alert('Selected user has no email (server requires it).'); return }
 
-async function removeFriend (id) { await api.deleteFriend(id); await fetchFriends() }
-async function updateFriend ({ id, patch }) { await api.updateFriend(id, patch); await fetchFriends() }
-async function approveFriend (id) { await api.approveInvite(id); await fetchFriends() }
-async function resendInvite (id) { await api.resendInvite(id) }
-async function revokeInvite (id) { await api.revokeInvite(id) }
+    const dup = friends.value.find(f => (f.email || '').toLowerCase() === payload.email.toLowerCase())
+    if (dup) { alert('This email is already in your friends list.'); return }
+
+    const body = {
+      friendofuid: Number(payload.friendofuid),
+      username: payload.username,
+      relationship: payload.relationship || '',
+      tags: Array.isArray(payload.tags) ? payload.tags : [],
+      emergencycontact: !!payload.emergencycontact,
+      email: payload.email,
+      phone: payload.phone || null
+    }
+
+    const res = await fetch(`${API_BASE}/friends`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body)
+    })
+    if (!res.ok) {
+      let serverMsg = ''
+      try { serverMsg = JSON.stringify(await res.json()) } catch { try { serverMsg = await res.text() } catch {} }
+      throw new Error(`HTTP ${res.status}${serverMsg ? ` - ${serverMsg}` : ''}`)
+    }
+
+    await fetchFriends()
+    showForm.value = false
+  } catch (e) {
+    alert(`Failed to add friend. ${e.message}`)
+    console.error('saveFriend error:', e)
+  }
+}
 
 function onCloseHeader () {}
 </script>
@@ -91,7 +165,10 @@ function onCloseHeader () {}
         @close="onCloseHeader"
       />
 
-      <!-- Add Friend -->
+      <div v-if="friendsError" class="mt-4 rounded-xl bg-rose-50 text-rose-700 ring-1 ring-rose-200 px-4 py-3">
+        {{ friendsError }}
+      </div>
+
       <div class="mt-4 flex justify-end">
         <button
           @click="openAddForm"
@@ -115,11 +192,11 @@ function onCloseHeader () {}
           v-for="f in filteredFriends"
           :key="f.id"
           :friend="f"
-          @remove="removeFriend"
-          @update="updateFriend"
-          @approve="approveFriend"
-          @resend="resendInvite"
-          @revoke="revokeInvite"
+          @remove="() => {}"
+          @update="() => {}"
+          @approve="() => {}"
+          @resend="() => {}"
+          @revoke="() => {}"
         />
       </div>
 
@@ -130,7 +207,6 @@ function onCloseHeader () {}
         Loading buddies…
       </div>
 
-      <!-- Modal -->
       <AddFriendModal
         v-if="showForm"
         :mode="formMode"
