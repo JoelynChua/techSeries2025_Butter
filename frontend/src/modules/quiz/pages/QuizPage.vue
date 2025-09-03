@@ -1,7 +1,20 @@
 <template>
-  <div
-    class="fixed inset-0 bg-sky-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-  >
+    <div class="quiz-background fixed inset-0 flex items-center justify-center z-50 p-4">
+    <!-- Background gradient -->
+    <div class="absolute inset-0 bg-gradient-to-b from-sky-200 to-sky-300"></div>
+
+    <!-- Dotted overlay -->
+    <div
+      class="pointer-events-none absolute inset-0 opacity-20"
+      style="
+        background-image:
+          radial-gradient(white 18%, transparent 19%),
+          radial-gradient(white 18%, transparent 19%);
+        background-position: 0 0, 16px 16px;
+        background-size: 32px 32px;
+      "
+    ></div>
+
     <div
       class="relative w-full max-w-xl overflow-hidden rounded-[28px] p-6 ring-1 ring-sky-100 shadow-[0_18px_48px_-22px_rgba(24,39,75,0.35)] bg-gradient-to-b from-sky-50 to-sky-100 text-xl"
     >
@@ -127,6 +140,7 @@
       </div>
     </div>
   </div>
+
 </template>
 
 <script>
@@ -298,6 +312,13 @@ export default {
   font-weight: bold;
   padding: 0.2rem 0.5rem;
   border-radius: 0.5rem;
+}
+
+.quiz-background {
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 /* Sliders */
