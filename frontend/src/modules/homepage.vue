@@ -2,12 +2,13 @@
   <main class="home">
     <div class="onboard-card">
       <div class="avatar-wrapper">
-        <div class="avatar-ring">
+        <!-- Mascot -->
+        <div class="avatar-container">
           <img :src="mascot" alt="Eco Reality mascot" class="avatar" />
-        </div>
-        <!-- Speech bubble -->
-        <div class="speech-bubble">
-          👋 Hi, I’m Veggie!
+          <!-- Speech bubble -->
+          <div class="speech-bubble">
+            {{ bubbleText }}
+          </div>
         </div>
       </div>
 
@@ -29,7 +30,44 @@
 </template>
 
 <script setup>
-import mascot from "../assets/mascot/Blank.png";
+import { ref, computed, onMounted } from 'vue'
+import axios from 'axios'
+import mascot from "../assets/mascot/Blank.png"
+
+// ---- API baseURL (configurable via Vite env or fallback) ----
+const baseURL = import.meta.env.VITE_API_BASE || 'http://localhost:5000'
+
+// Extract a title-cased image name from the file path
+const imageName = computed(() => {
+  const path = String(mascot || '')
+  const filename = (path.split('/').pop() || '').split('?')[0]
+  const base = (filename.split('.').shift() || '')
+    .replace(/[-_]+/g, ' ')
+    .trim()
+    .toLowerCase()
+
+  if (!base) return ''
+  return base.charAt(0).toUpperCase() + base.slice(1)
+})
+
+const bubbleText = ref("👋 Hi, I’m Veggie!") // fallback text
+
+async function fetchMascotWords() {
+  try {
+    const resp = await axios.get(`${baseURL}/mascotWords`, {
+      params: { feeling: imageName.value }
+    })
+    const data = resp?.data ?? {}
+    // Flask returns {feeling, encourageWords: [...]}
+    if (Array.isArray(data.encourageWords) && data.encourageWords.length > 0) {
+      bubbleText.value = data.encourageWords[0]
+    }
+  } catch (err) {
+    console.error("Failed to fetch mascot words:", err)
+  }
+}
+
+onMounted(fetchMascotWords)
 </script>
 
 <style scoped>
@@ -38,8 +76,14 @@ import mascot from "../assets/mascot/Blank.png";
   min-height: 100vh;
   display: grid;
   place-items: center;
-  background: radial-gradient(120% 120% at 50% 0%,
-              #b8d7ff 0%, #a8c5ff 20%, #b7b2ff 45%, #caa8ff 70%, #c3a0ff 100%);
+  background: radial-gradient(
+    120% 120% at 50% 0%,
+    #b8d7ff 0%,
+    #a8c5ff 20%,
+    #b7b2ff 45%,
+    #caa8ff 70%,
+    #c3a0ff 100%
+  );
   padding: 24px;
   box-sizing: border-box;
 }
@@ -52,54 +96,49 @@ import mascot from "../assets/mascot/Blank.png";
   color: #ffffff;
 }
 
-/* Wrap avatar + speech bubble side by side */
+/* Wrap mascot + bubble */
 .avatar-wrapper {
   display: flex;
-  align-items: center;
   justify-content: center;
-  gap: 12px;
   margin-bottom: 20px;
 }
 
-/* Circular mascot container */
-.avatar-ring {
-  width: 180px;
-  height: 180px;
-  border-radius: 50%;
-  background: #ffffff;
-  display: grid;
-  place-items: center;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.15);
+/* Image without circle */
+.avatar-container {
+  position: relative;
+  display: inline-block;
 }
 
 .avatar {
-  width: 75%;
+  width: 160px;
   height: auto;
   display: block;
 }
 
-/* Speech bubble style */
+/* Speech bubble top-left */
 .speech-bubble {
+  position: absolute;
+  top: -20px;
+  left: -60px;
   max-width: 140px;
   background: #fff;
   color: #333;
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-radius: 16px;
   font-size: 13px;
   line-height: 1.4;
-  position: relative;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-/* Tail of bubble */
+/* Tail pointing right */
 .speech-bubble::after {
   content: "";
   position: absolute;
-  left: -8px;
+  right: -8px;
   top: 20px;
   border-width: 8px;
   border-style: solid;
-  border-color: transparent #fff transparent transparent;
+  border-color: transparent transparent transparent #fff;
 }
 
 /* Intro text */
@@ -132,9 +171,8 @@ import mascot from "../assets/mascot/Blank.png";
 
 /* Larger screens */
 @media (min-width: 420px) {
-  .avatar-ring {
-    width: 200px;
-    height: 200px;
+  .avatar {
+    width: 180px;
   }
   .intro {
     font-size: 15px;

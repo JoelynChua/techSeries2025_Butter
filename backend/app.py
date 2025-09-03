@@ -3,11 +3,17 @@ from supabase import create_client, Client
 from flasgger import Swagger
 from dotenv import load_dotenv
 import os
+from flask_cors import CORS
+
+
 
 # ---- Load environment variables ----
 load_dotenv()
 
 app = Flask(__name__)
+
+# after app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": ["http://localhost:5173"]}})
 
 # ---- Swagger config ----
 app.config["SWAGGER"] = {
