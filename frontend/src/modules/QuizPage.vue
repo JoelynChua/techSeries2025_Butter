@@ -1,14 +1,17 @@
 <template>
-    <div class="quiz-background fixed inset-0 flex items-center justify-center z-50 p-4">
+  <div
+    class="quiz-background min-h-screen flex items-center justify-center p-4"
+  >
     <!-- Background gradient -->
-    <div class="absolute inset-0 bg-gradient-to-b from-sky-200 to-sky-300"></div>
+    <div
+      class="absolute inset-0 bg-gradient-to-b from-sky-200 to-sky-300"
+    ></div>
 
     <!-- Dotted overlay -->
     <div
       class="pointer-events-none absolute inset-0 opacity-20"
       style="
-        background-image:
-          radial-gradient(white 18%, transparent 19%),
+        background-image: radial-gradient(white 18%, transparent 19%),
           radial-gradient(white 18%, transparent 19%);
         background-position: 0 0, 16px 16px;
         background-size: 32px 32px;
@@ -30,7 +33,10 @@
           <p class="text-2xl text-slate-600">Loading Quiz...</p>
         </div>
 
-        <div v-if="!isLoading && currentQuestion && !showResults" class="flex-1 flex flex-col justify-center">
+        <div
+          v-if="!isLoading && currentQuestion && !showResults"
+          class="flex-1 flex flex-col justify-center"
+        >
           <p class="block font-semibold text-slate-700 mb-14 text-2xl">
             {{ currentQuestionIndex + 1 }}. {{ currentQuestion.question_text }}
           </p>
@@ -140,7 +146,6 @@
       </div>
     </div>
   </div>
-
 </template>
 
 <script>

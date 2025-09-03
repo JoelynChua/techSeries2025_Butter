@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import closeFriendsRoutes from '../modules/close-friends/routes.js'
-import QuizPage from '../modules/quiz/pages/QuizPage.vue'
+import QuizPage from '../modules/QuizPage.vue'
 
 // Lazy-load to avoid bundling issues
 const HomePage = () => import('../modules/homepage.vue')
