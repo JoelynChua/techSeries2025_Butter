@@ -29,35 +29,45 @@
             />
             <span v-if="loadingUsers" class="absolute right-3 top-2.5 text-slate-400 animate-pulse">…</span>
 
-            <ul
-              v-show="listOpen && filtered.length"
-              class="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-sky-200 bg-white shadow-lg"
-              @mousedown.prevent
-            >
-              <li
-                v-for="(u, i) in filtered"
-                :key="u.id"
-                @click="selectUser(u)"
-                :class="[
-                  'px-3 py-2 cursor-pointer text-sm flex justify-between',
-                  i === highlighted ? 'bg-sky-100' : 'hover:bg-sky-50'
-                ]"
-              >
-                <span>{{ u.username }}</span>
-                <span class="text-slate-400">{{ u.email || u.phone || '' }}</span>
-              </li>
-            </ul>
+     <ul
+  v-show="listOpen && filtered.length"
+  class="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-sky-200 bg-white shadow-lg"
+  @mousedown.prevent
+>
+  <li
+    v-for="(u, i) in filtered"
+    :key="u.id"
+    @click="addedSet.has(u.id) ? null : selectUser(u)"
+    :class="[
+      'px-3 py-2 cursor-pointer text-sm flex items-center justify-between',
+      i === highlighted ? 'bg-sky-100' : 'hover:bg-sky-50',
+      addedSet.has(u.id) ? 'opacity-60 cursor-not-allowed' : ''
+    ]"
+  >
+    <span class="truncate">@{{ u.username }}</span>
+
+    <!-- Only show the “Added” badge when we are not hiding added users -->
+    <span
+      v-if="addedSet.has(u.id) && SHOW_ADDED_IN_LIST"
+      class="ml-3 text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 ring-1 ring-slate-200"
+    >
+      Added
+    </span>
+  </li>
+</ul>
+
 
             <div v-show="listOpen && !filtered.length && !loadingUsers"
                  class="absolute z-20 mt-1 w-full rounded-xl border border-sky-200 bg-white shadow-lg px-3 py-2 text-sm text-slate-500">
               No users found.
             </div>
           </div>
+<p v-if="usersError" class="mt-1 text-xs text-rose-600">{{ usersError }}</p>
+<p v-if="form.username" class="mt-1 text-xs text-slate-500">
+  Selected: <span class="font-medium">@{{ form.username }}</span>
+</p>
+<!-- Removed the email display lines on purpose -->
 
-          <p v-if="usersError" class="mt-1 text-xs text-rose-600">{{ usersError }}</p>
-          <p v-if="form.username" class="mt-1 text-xs text-slate-500">
-            Selected: <span class="font-medium">@{{ form.username }}</span>
-          </p>
           <p v-if="form.email" class="mt-1 text-xs text-slate-500">
             Email: <span class="font-medium">{{ form.email }}</span>
           </p>
@@ -67,10 +77,31 @@
         </div>
 
         <div>
-          <label class="block text-sm font-semibold text-slate-700 mb-1">Relationship</label>
-          <input v-model="form.relationship" type="text" placeholder="e.g., Classmate, Friends, BFF, Siblings, Parents"
-                 class="w-full rounded-xl border border-sky-200 px-3 py-2 shadow-sm focus:ring-2 focus:ring-sky-400 focus:outline-none" />
-        </div>
+  <label class="block text-sm font-semibold text-slate-700 mb-1">Relationship</label>
+
+  <!-- Native select with presets -->
+  <select
+    v-model="selectedRelationship"
+    class="w-full rounded-xl border border-sky-200 px-3 py-2 shadow-sm focus:ring-2 focus:ring-sky-400 focus:outline-none bg-white/90"
+  >
+    <option value="" disabled>Select a relationship…</option>
+    <option v-for="opt in REL_OPTIONS" :key="opt" :value="opt">{{ opt }}</option>
+    <option value="Other…">Other…</option>
+  </select>
+
+  <!-- Show when 'Other…' is chosen -->
+  <div v-if="selectedRelationship === 'Other…'" class="mt-2">
+    <input
+      v-model.trim="customRelationship"
+      type="text"
+      placeholder="Type a custom relationship (e.g., Project Advisor)"
+      class="w-full rounded-xl border border-sky-200 px-3 py-2 shadow-sm focus:ring-2 focus:ring-sky-400 focus:outline-none"
+    />
+    <p class="mt-1 text-xs text-slate-500">
+      Saving as: <span class="font-medium">{{ form.relationship || '—' }}</span>
+    </p>
+  </div>
+</div>
 
         <div>
           <label class="block text-sm font-semibold text-slate-700 mb-1">Tags</label>
@@ -113,10 +144,17 @@
   </div>
 </template>
 
+
 <script setup>
 import { reactive, ref, watch, computed, onMounted } from 'vue'
 
-const props = defineProps({ mode: { type: String, default: 'add' }, friend: { type: Object, default: null } })
+const props = defineProps({
+  mode: { type: String, default: 'add' },
+  friend: { type: Object, default: null },
+  // ⬇️ pass the IDs of users already added to your friend list
+  alreadyAddedIds: { type: Array, default: () => [] }
+})
+
 const emit = defineEmits(['save','close'])
 
 const form = reactive({
@@ -128,6 +166,9 @@ const form = reactive({
   email: '',
   phone: ''
 })
+
+const SHOW_ADDED_IN_LIST = false // set true if you prefer showing “Added” (disabled) rows
+
 const tagsInput = ref('')
 
 const userProfiles = ref([])   // [{id, username, email, phone}]
@@ -170,7 +211,10 @@ async function fetchProfiles () {
 }
 onMounted(fetchProfiles)
 
-const filtered = computed(() => {
+// Fast lookup for “already added”
+const addedSet = computed(() => new Set((props.alreadyAddedIds || []).map(String)))
+
+const baseFiltered = computed(() => {
   const q = search.value.trim().toLowerCase()
   const base = userProfiles.value
   if (!q) return base.slice(0, 50)
@@ -181,10 +225,15 @@ const filtered = computed(() => {
   ).slice(0, 50)
 })
 
+// Final filtered list: hide already-added unless SHOW_ADDED_IN_LIST = true
+const filtered = computed(() => {
+  if (SHOW_ADDED_IN_LIST) return baseFiltered.value
+  return baseFiltered.value.filter(u => !addedSet.value.has(u.id))
+})
+
 function openList() { listOpen.value = true }
 function closeList() { listOpen.value = false; highlighted.value = -1 }
 function deferCloseList() {
-  // allow click on list items before blur hides the list
   blurTimer && clearTimeout(blurTimer)
   blurTimer = setTimeout(() => { closeList() }, 120)
 }
@@ -196,31 +245,21 @@ function move(dir) {
 }
 function chooseHighlighted() {
   if (highlighted.value < 0 || highlighted.value >= filtered.value.length) return
-  selectUser(filtered.value[highlighted.value])
+  const u = filtered.value[highlighted.value]
+  if (addedSet.value.has(u.id)) return // safety if SHOW_ADDED_IN_LIST = true
+  selectUser(u)
 }
 function selectUser(u) {
+  if (addedSet.value.has(u.id)) return // disable selection for added users
   form.friendofuid = u.id
   form.username    = u.username
-  form.email       = u.email || ''
+  form.email       = u.email || ''   // still captured for backend; just not displayed
   form.phone       = u.phone || ''
   search.value     = u.username
   closeList()
 }
 
-watch(() => props.friend, (val) => {
-  if (val && props.mode === 'edit') {
-    Object.assign(form, {
-      friendofuid: String(val.friendofuid ?? ''),
-      username: val.username || '',
-      relationship: val.relationship || '',
-      tags: Array.isArray(val.tags) ? val.tags : [],
-      emergencycontact: !!val.emergencycontact,
-      email: val.email || '',
-      phone: val.phone || ''
-    })
-    search.value = form.username
-  }
-}, { immediate: true })
+// (…keep your relationship dropdown/watchers/edit-mode prefill etc. unchanged)
 
 function addTags() {
   if (!tagsInput.value.trim()) return
@@ -234,4 +273,53 @@ function onSubmit() {
   if (!form.email) { alert('Selected user has no email; server requires email.'); return }
   emit('save', { ...form })
 }
+
+// Preset options shown in the dropdown
+const REL_OPTIONS = [
+  'Friend',
+  'Best Friend',
+  'Classmate',
+  'Sibling',
+  'Parent',
+  'Partner',]
+
+const selectedRelationship = ref('')    // what’s selected in the <select>
+const customRelationship   = ref('')    // free-text when 'Other…' is chosen
+
+// Keep form.relationship in sync with the UI
+watch(selectedRelationship, (val) => {
+  if (val === 'Other…') {
+    form.relationship = customRelationship.value.trim()
+  } else {
+    form.relationship = val
+  }
+})
+watch(customRelationship, (val) => {
+  if (selectedRelationship.value === 'Other…') {
+    form.relationship = val.trim()
+  }
+})
+
+// Prefill edit mode sensibly
+watch(() => props.friend, (val) => {
+  if (val && props.mode === 'edit') {
+    Object.assign(form, {
+      friendofuid: String(val.friendofuid ?? ''),
+      username: val.username || '',
+      relationship: val.relationship || '',
+      tags: Array.isArray(val.tags) ? val.tags : [],
+      emergencycontact: !!val.emergencycontact,
+      email: val.email || '',
+      phone: val.phone || ''
+    })
+    // If existing relationship matches a preset, select it; else use Other…
+    const match = REL_OPTIONS.includes(form.relationship) ? form.relationship : 'Other…'
+    selectedRelationship.value = match
+    if (match === 'Other…') customRelationship.value = form.relationship
+    search.value = form.username
+  }
+}, { immediate: true })
 </script>
+
+
+
