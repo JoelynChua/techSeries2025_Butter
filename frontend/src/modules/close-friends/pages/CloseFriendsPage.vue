@@ -5,6 +5,20 @@ import FriendFilter from '../components/FriendFilter.vue'
 import FriendTile from '../components/FriendTile.vue'
 import AddFriendModal from '../components/AddFriendsModal.vue'
 
+// Mascots (src/assets/mascot/*.png)
+import Blank from '@/assets/mascot/Blank.png'
+import Concerned from '@/assets/mascot/Concerned.png'
+import GoodJob from '@/assets/mascot/GoodJob.png'
+import Happy from '@/assets/mascot/Happy.png'
+import Love from '@/assets/mascot/Love.png'
+import Pout from '@/assets/mascot/Pout.png'
+import Proud from '@/assets/mascot/Proud.png'
+import Support from '@/assets/mascot/Support.png'
+
+const mascot = {
+  Blank, Concerned, GoodJob, Happy, Love, Pout, Proud, Support
+}
+
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/,'')
 const OWNER_UID =
   (localStorage.getItem('ownerUid') || localStorage.getItem('userId')) ||
@@ -20,23 +34,97 @@ const showForm = ref(false)
 const formMode = ref('add')
 const selectedFriend = ref(null)
 
+/* -------------------------
+   Tiny toast system (in-theme)
+------------------------- */
+const toasts = ref([])
+/** pushToast({ type: 'success'|'error'|'warning'|'info', title?: string, message: string, timeout?: number }) */
+function pushToast({ type = 'info', title = '', message = '', timeout = 3500 } = {}) {
+  const id = Math.random().toString(36).slice(2)
+  toasts.value.push({ id, type, title, message })
+  if (timeout > 0) setTimeout(() => dismissToast(id), timeout)
+}
+function dismissToast(id) {
+  toasts.value = toasts.value.filter(t => t.id !== id)
+}
+function toastIcon(type) {
+  if (type === 'success') return '🌿'
+  if (type === 'error') return '💥'
+  if (type === 'warning') return '⚠️'
+  return '🔔'
+}
+
+/* -------------------------
+   Emotion → Mascot mapping
+------------------------- */
+// Expect f.emotions = { mood: 0-100, energy: 0-100, sleep: 0-100 }
+function normalizeEmotion(e) {
+  const m = Number.isFinite(e?.mood) ? e.mood : 20
+  const en = Number.isFinite(e?.energy) ? e.energy : 60
+  const sl = Number.isFinite(e?.sleep) ? e.sleep : 60
+  return { mood: clamp(m), energy: clamp(en), sleep: clamp(sl) }
+}
+function clamp(x) { return Math.max(0, Math.min(100, Number(x) || 0)) }
+
+/**
+ * Heuristic:
+ * - Very high overall → Love or Proud
+ * - High → Happy
+ * - Medium → GoodJob
+ * - Low sleep specifically → Pout
+ * - Low overall → Concerned / Support
+ * - Neutral default → Blank
+ */
+function mascotByEmotion(e) {
+  const { mood, energy, sleep } = normalizeEmotion(e)
+  const avg = (mood + energy + sleep) / 3
+
+  // Specific conditions first
+  if (sleep < 35 && avg < 60) return mascot.Pout            // sleepy / cranky
+  if (avg < 35)            return mascot.Concerned          // not doing great
+  if (avg < 45)            return mascot.Support            // needs a boost
+
+  // Positive range
+  if (avg >= 90) {
+    // sprinkle hearts if super high mood
+    return mood >= 92 ? mascot.Love : mascot.Proud
+  }
+  if (avg >= 75) {
+    return (mood >= 80 && energy >= 75) ? mascot.Proud : mascot.Happy
+  }
+  if (avg >= 58) return mascot.GoodJob
+
+  return mascot.Blank
+}
+
+/* -------------------------
+   Friends fetch + shaping
+------------------------- */
 function friendRowsToUi(rows) {
-  return rows.map(r => ({
-    id: r.id ?? r.friendId ?? r.userId ?? Math.random().toString(36).slice(2),
-    username: r.username ?? '',
-    relationship: r.relationship ?? '',
-    tags: Array.isArray(r.tags) ? r.tags : [],
-    emergencycontact: !!(r.emergencycontact ?? r.emergencyContact),
-    email: r.email || '',
-    phone: r.phone || r.mobile || '',
-    // fields FriendTile may read
-    name: r.username ?? '',
-    handle: r.handle ?? '',
-    status: r.status ?? 'active',
-    emotions: r.emotions ?? { mood: 70, energy: 65, sleep: 60 },
-    avatar: r.avatar || 'https://picsum.photos/seed/friend/256/256',
-    emergencyContact: !!(r.emergencycontact ?? r.emergencyContact),
-  }))
+  return rows.map(r => {
+    const id =
+      r.id ?? r.friendId ?? r.userId ?? Math.random().toString(36).slice(2)
+
+    const emotions = r.emotions ?? { mood: 70, energy: 65, sleep: 60 }
+
+    return {
+      id,
+      username: r.username ?? '',
+      relationship: r.relationship ?? '',
+      tags: Array.isArray(r.tags) ? r.tags : [],
+      emergencycontact: !!(r.emergencycontact ?? r.emergencyContact),
+      email: r.email || '',
+      phone: r.phone || r.mobile || '',
+      name: r.username ?? '',
+      handle: r.handle ?? '',
+      status: r.status ?? 'active',
+      emotions,
+      // Use backend avatar if provided; else choose by emotion
+      avatar: r.avatar || mascotByEmotion(emotions),
+      emergencyContact: !!(r.emergencycontact ?? r.emergencyContact),
+      friendofuid: r.friendofuid ?? r.ownerUid ?? r.ownerId ?? OWNER_UID
+    }
+  })
 }
 
 function candidateFriendUrls() {
@@ -78,12 +166,21 @@ async function fetchFriends () {
     friends.value = []
     friendsError.value = `Could not load friends (${e.message}). If your API requires a user id, set one in localStorage: ownerUid=123`
     console.error('[friends] load failed:', e, { tried: candidateFriendUrls() })
+    // toast instead of alert
+    pushToast({
+      type: 'error',
+      title: 'Load Failed',
+      message: 'Could not load friends. If your API needs a user id, set localStorage ownerUid=123'
+    })
   } finally {
     loading.value = false
   }
 }
 onMounted(fetchFriends)
 
+/* -------------------------
+   Filter & actions
+------------------------- */
 const filteredFriends = computed(() => {
   let list = [...friends.value]
   if (tab.value === 'emergency') list = list.filter(f => !!(f.emergencycontact ?? f.emergencyContact))
@@ -103,11 +200,17 @@ function closeForm () { showForm.value = false }
 
 async function saveFriend (payload) {
   try {
-    if (!payload.friendofuid) { alert('Pick a user from the list.'); return }
-    if (!payload.email) { alert('Selected user has no email (server requires it).'); return }
+    if (!payload.friendofuid) {
+      return pushToast({ type: 'warning', title: 'Pick a user', message: 'Please select a user from the list.' })
+    }
+    if (!payload.email) {
+      return pushToast({ type: 'error', title: 'Missing email', message: 'Selected user has no email (server requires it).' })
+    }
 
     const dup = friends.value.find(f => (f.email || '').toLowerCase() === payload.email.toLowerCase())
-    if (dup) { alert('This email is already in your friends list.'); return }
+    if (dup) {
+      return pushToast({ type: 'warning', title: 'Already added', message: 'This email is already in your friends list.' })
+    }
 
     const body = {
       friendofuid: Number(payload.friendofuid),
@@ -132,9 +235,10 @@ async function saveFriend (payload) {
 
     await fetchFriends()
     showForm.value = false
+    pushToast({ type: 'success', title: 'Friend added', message: `${payload.username} joined your list 🌱` })
   } catch (e) {
-    alert(`Failed to add friend. ${e.message}`)
     console.error('saveFriend error:', e)
+    pushToast({ type: 'error', title: 'Save failed', message: e.message || 'Could not add friend.' })
   }
 }
 
@@ -143,6 +247,7 @@ function onCloseHeader () {}
 
 <template>
   <div class="min-h-screen relative overflow-x-hidden">
+    <!-- keep your original theme -->
     <div class="absolute inset-0 bg-gradient-to-b from-sky-200 to-sky-300"></div>
     <div
       class="pointer-events-none absolute inset-0 opacity-20"
@@ -154,6 +259,46 @@ function onCloseHeader () {}
         background-size: 32px 32px;
       "
     ></div>
+
+    <!-- Toast stack (top-right) -->
+    <div class="fixed top-4 right-4 z-50 w-[92vw] max-w-sm space-y-2">
+      <TransitionGroup
+        tag="div"
+        enter-active-class="transition duration-200"
+        enter-from-class="opacity-0 translate-y-1"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition duration-200"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 translate-y-1"
+      >
+        <div
+          v-for="t in toasts"
+          :key="t.id"
+          class="rounded-xl px-3 py-2.5 ring-1 shadow-lg backdrop-blur flex items-start gap-2"
+          :class="[
+            t.type==='success' && 'bg-emerald-50/90 ring-emerald-200 text-emerald-900',
+            t.type==='error'   && 'bg-rose-50/90 ring-rose-200 text-rose-900',
+            t.type==='warning' && 'bg-amber-50/90 ring-amber-200 text-amber-900',
+            t.type==='info'    && 'bg-sky-50/90 ring-sky-200 text-sky-900'
+          ]"
+        >
+          <div class="text-lg leading-none pt-0.5">{{ toastIcon(t.type) }}</div>
+          <div class="min-w-0">
+            <div v-if="t.title" class="text-sm font-bold leading-tight">{{ t.title }}</div>
+            <div class="text-xs leading-snug opacity-90">
+              {{ t.message }}
+            </div>
+          </div>
+          <button
+            class="ml-auto text-xs opacity-60 hover:opacity-100 px-2"
+            @click="dismissToast(t.id)"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      </TransitionGroup>
+    </div>
 
     <div class="relative mx-auto max-w-5xl px-5 py-6">
       <ArcadeHeader
@@ -210,7 +355,7 @@ function onCloseHeader () {}
       <AddFriendModal
         v-if="showForm"
         :mode="'add'"
-  :alreadyAddedIds="friends.map(f => String(f.friendofuid))"
+        :alreadyAddedIds="friends.map(f => String(f.friendofuid))"
         :friend="selectedFriend"
         @save="saveFriend"
         @close="closeForm"

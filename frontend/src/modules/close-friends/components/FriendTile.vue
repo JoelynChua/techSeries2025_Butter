@@ -11,10 +11,6 @@
           alt=""
           class="h-32 w-32 rounded-[28px] object-cover ring-4 ring-white shadow-[0_10px_20px_-10px_rgba(0,0,0,0.45)]"
         />
-        <span
-          v-if="status==='active'"
-          class="absolute -right-1 -top-1 h-4 w-4 rounded-full bg-emerald-400 ring-2 ring-white"
-        />
       </div>
 
       <div class="mt-4 w-full text-center">
@@ -27,8 +23,7 @@
       </div>
 
       <div class="mt-4 flex flex-wrap justify-center gap-2 text-xs">
-        <span v-if="status==='pending'" class="rounded-full bg-amber-100 px-3 py-1 font-semibold text-amber-700">Pending</span>
-        <span v-if="status==='active'" class="rounded-full bg-emerald-100 px-3 py-1 font-semibold text-emerald-700">Active</span>
+        <!-- Removed Active/Pending tags -->
         <span class="rounded-full bg-sky-100 px-3 py-1 font-semibold text-sky-700">
           {{ friend.relationship }}
         </span>
@@ -77,27 +72,30 @@
 
       <div class="mt-5 grid w-full grid-cols-2 gap-3">
         <button
-          v-if="status==='active'"
           class="col-span-2 rounded-full bg-rose-100 text-rose-700 text-sm font-semibold py-2 hover:bg-rose-200"
           @click="$emit('remove', friend.id)"
         >
           Remove
         </button>
-
-        <template v-else>
-          <button
-            class="col-span-2 rounded-full bg-rose-100 text-rose-700 text-sm font-semibold py-2 hover:bg-rose-200"
-            @click="$emit('revoke', friend.id)"
-          >
-            Revoke
-          </button>
-        </template>
       </div>
     </div>
   </div>
 </template>
+
 <script setup>
 import { computed } from 'vue'
+
+// import mascots
+import Blank from '@/assets/mascot/Blank.png'
+import Concerned from '@/assets/mascot/Concerned.png'
+import GoodJob from '@/assets/mascot/GoodJob.png'
+import Happy from '@/assets/mascot/Happy.png'
+import Love from '@/assets/mascot/Love.png'
+import Pout from '@/assets/mascot/Pout.png'
+import Proud from '@/assets/mascot/Proud.png'
+import Support from '@/assets/mascot/Support.png'
+
+const MASCOT = { Blank, Concerned, GoodJob, Happy, Love, Pout, Proud, Support }
 
 const props = defineProps({
   friend: { type: Object, required: true }
@@ -106,13 +104,31 @@ defineEmits(['update', 'remove', 'approve', 'resend', 'revoke'])
 
 const displayName = computed(() => props.friend?.username || props.friend?.name || 'Friend')
 const handle = computed(() => props.friend?.handle || '')
-const status = computed(() => props.friend?.status || 'active')
 const hasEmotions = computed(() => !!props.friend?.emotions)
 
-const avatarSrc = computed(() =>
-  props.friend?.avatar ||
-  `https://api.dicebear.com/7.x/pixel-art/svg?seed=${encodeURIComponent(displayName.value)}`
-)
+function clamp01(x) { return Math.max(0, Math.min(100, Number(x) || 0)) }
+function normalized(e) {
+  return {
+    mood: clamp01(e?.mood ?? 60),
+    energy: clamp01(e?.energy ?? 60),
+    sleep: clamp01(e?.sleep ?? 60)
+  }
+}
+function mascotByEmotion(e) {
+  const { mood, energy, sleep } = normalized(e)
+  const avg = (mood + energy + sleep) / 3
+  if (sleep < 35 && avg < 60) return MASCOT.Pout
+  if (avg < 35)               return MASCOT.Concerned
+  if (avg < 45)               return MASCOT.Support
+  if (avg >= 90)              return mood >= 92 ? MASCOT.Love : MASCOT.Proud
+  if (avg >= 75)              return (mood >= 80 && energy >= 75) ? MASCOT.Proud : MASCOT.Happy
+  if (avg >= 58)              return MASCOT.GoodJob
+  return MASCOT.Blank
+}
+
+const avatarSrc = computed(() => {
+  return props.friend?.avatar || mascotByEmotion(props.friend?.emotions) || MASCOT.Blank
+})
 
 function stat(v) {
   const n = Number(v ?? 0)
