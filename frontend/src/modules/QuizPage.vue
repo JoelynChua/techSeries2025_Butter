@@ -1,6 +1,6 @@
 <template>
   <div
-    class="quiz-background min-h-screen flex items-center justify-center p-4"
+    class="quiz-background flex py-10 justify-center p-4"
   >
     <div
       class="absolute inset-0 bg-gradient-to-b from-sky-200 to-sky-300"
@@ -17,25 +17,25 @@
     ></div>
 
     <div
-      class="relative w-full max-w-xl overflow-hidden rounded-[28px] p-6 ring-1 ring-sky-100 shadow-[0_18px_48px_-22px_rgba(24,39,75,0.35)] bg-gradient-to-b from-sky-50 to-sky-100 text-xl"
+      class="relative h-[600px] w-full max-w-xl overflow-hidden rounded-[28px] p-6 ring-1 ring-sky-100 shadow-[0_18px_48px_-22px_rgba(24,39,75,0.35)] bg-gradient-to-b from-sky-50 to-sky-100 text-xl"
     >
-      <h2 class="text-3xl font-bold text-slate-800 mb-6 text-center">
+      <h2 class="text-2xl font-bold text-slate-800 mb-2 text-center">
         Daily Quiz
       </h2>
 
-      <div class="h-[450px] flex flex-col justify-between">
+      <div class="h-[390px] flex flex-col justify-between">
         <div
           v-if="isLoading"
           class="flex items-center justify-center h-full pt-16"
         >
-          <p class="text-2xl text-slate-600">Loading Quiz...</p>
+          <p class="text-xl text-slate-600">Loading Quiz...</p>
         </div>
 
         <div
           v-if="!isLoading && currentQuestion && !showResults"
           class="flex-1 flex flex-col justify-center"
         >
-          <p class="block font-semibold text-slate-700 mb-14 text-2xl">
+          <p class="block font-semibold text-slate-700 mb-14 text-xl">
             {{ currentQuestionIndex + 1 }}. {{ currentQuestion.question_text }}
           </p>
 
@@ -68,14 +68,14 @@
               <span>{{ currentQuestion.config.min }}</span>
               <span>{{ currentQuestion.config.max }}</span>
             </div>
-            <p class="text-2xl font-bold mt-4 text-center">
+            <p class="text-xl font-bold mt-4 text-center">
               {{ answers[currentQuestion.field_name] }} hours
             </p>
           </div>
 
           <div
             v-if="currentQuestion.type === 'options'"
-            class="flex flex-col gap-4"
+            class="flex flex-col gap-2"
           >
             <button
               v-for="option in currentQuestion.options"
@@ -92,7 +92,7 @@
         </div>
 
         <div v-if="showResults" class="text-center">
-          <h3 class="text-3xl font-bold text-slate-800 mb-6">
+          <h3 class="text-2xl font-bold text-slate-800 mb-6">
             Your Mood Summary
           </h3>
           <p
@@ -129,7 +129,7 @@
         <button
           v-if="currentQuestionIndex > 0 && !showResults"
           @click="prevQuestion"
-          class="px-6 py-3 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-sm text-lg"
+          class="px-6 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-sm text-lg"
         >
           Back
         </button>

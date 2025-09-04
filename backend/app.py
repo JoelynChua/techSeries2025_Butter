@@ -28,7 +28,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ---- Table names (use variables consistently) ----
 users_table   = "users"
-mood_table    = "moodMetrics"
+mood_table    = "moodMetric"
 friends_table = "friend"
 quizqn_table = "quizqn"
 label_options_table = "label_options"
@@ -476,7 +476,7 @@ def create_mood_metric():
     payload = {
         "userId": user_id,
         "sleepHours": data.get("sleepHours"),
-        "exerciseHours": exercise_hours,
+        "exerciseHours": data.get('exercise_hours'),
         "workingHrs": data.get("workingHrs"),
         "mood": data.get("mood"),
         "sleepQuality": data.get("sleepQuality"),
