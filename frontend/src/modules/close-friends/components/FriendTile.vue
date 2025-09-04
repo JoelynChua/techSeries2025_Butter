@@ -23,12 +23,11 @@
       </div>
 
       <div class="mt-4 flex flex-wrap justify-center gap-2 text-xs">
-        <!-- Removed Active/Pending tags -->
-        <span class="rounded-full bg-sky-100 px-3 py-1 font-semibold text-sky-700">
+        <span v-if="friend?.relationship" class="rounded-full bg-sky-100 px-3 py-1 font-semibold text-sky-700">
           {{ friend.relationship }}
         </span>
         <span
-          v-if="friend.emergencycontact || friend.emergencyContact"
+          v-if="friend?.emergencycontact || friend?.emergencyContact"
           class="rounded-full bg-rose-100 px-3 py-1 font-semibold text-rose-700"
         >
           Emergency
@@ -70,22 +69,50 @@
         </div>
       </div>
 
-      <div class="mt-5 grid w-full grid-cols-2 gap-3">
-        <button
-          class="col-span-2 rounded-full bg-rose-100 text-rose-700 text-sm font-semibold py-2 hover:bg-rose-200"
-          @click="$emit('remove', friend.id)"
-        >
-          Remove
-        </button>
+      <!-- Actions (inline confirm; no popovers) -->
+      <div class="mt-5 w-full">
+        <div v-if="!confirming" class="grid grid-cols-1">
+          <button
+            class="rounded-full bg-rose-100 text-rose-700 text-sm font-semibold py-2 hover:bg-rose-200
+                   disabled:opacity-60 disabled:cursor-not-allowed"
+            @click="confirming = true"
+            :disabled="removing"
+          >
+            Remove
+          </button>
+        </div>
+
+        <div v-else class="grid grid-cols-2 gap-2">
+          <button
+            class="rounded-full bg-rose-600 text-white text-sm font-semibold py-2 hover:bg-rose-700
+                   disabled:opacity-60 disabled:cursor-not-allowed"
+            @click="confirmRemove"
+            :disabled="removing"
+          >
+            <span v-if="!removing">Delete</span>
+            <span v-else class="inline-flex items-center gap-2">
+              <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"/>
+                <path class="opacity-75" d="M4 12a8 8 0 018-8v4" stroke="currentColor" stroke-linecap="round"/>
+              </svg>
+              Deleting…
+            </span>
+          </button>
+          <button
+            class="rounded-full bg-slate-100 text-slate-700 text-sm font-semibold py-2 hover:bg-slate-200"
+            @click="confirming = false"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
-// import mascots
 import Blank from '@/assets/mascot/Blank.png'
 import Concerned from '@/assets/mascot/Concerned.png'
 import GoodJob from '@/assets/mascot/GoodJob.png'
@@ -100,7 +127,7 @@ const MASCOT = { Blank, Concerned, GoodJob, Happy, Love, Pout, Proud, Support }
 const props = defineProps({
   friend: { type: Object, required: true }
 })
-defineEmits(['update', 'remove', 'approve', 'resend', 'revoke'])
+const emit = defineEmits(['update', 'remove', 'approve', 'resend', 'revoke'])
 
 const displayName = computed(() => props.friend?.username || props.friend?.name || 'Friend')
 const handle = computed(() => props.friend?.handle || '')
@@ -108,11 +135,7 @@ const hasEmotions = computed(() => !!props.friend?.emotions)
 
 function clamp01(x) { return Math.max(0, Math.min(100, Number(x) || 0)) }
 function normalized(e) {
-  return {
-    mood: clamp01(e?.mood ?? 60),
-    energy: clamp01(e?.energy ?? 60),
-    sleep: clamp01(e?.sleep ?? 60)
-  }
+  return { mood: clamp01(e?.mood ?? 60), energy: clamp01(e?.energy ?? 60), sleep: clamp01(e?.sleep ?? 60) }
 }
 function mascotByEmotion(e) {
   const { mood, energy, sleep } = normalized(e)
@@ -125,13 +148,16 @@ function mascotByEmotion(e) {
   if (avg >= 58)              return MASCOT.GoodJob
   return MASCOT.Blank
 }
+const avatarSrc = computed(() => props.friend?.avatar || mascotByEmotion(props.friend?.emotions) || MASCOT.Blank)
+function stat(v) { const n = Number(v ?? 0); return Math.max(0, Math.min(100, Number.isNaN(n) ? 0 : n)) }
 
-const avatarSrc = computed(() => {
-  return props.friend?.avatar || mascotByEmotion(props.friend?.emotions) || MASCOT.Blank
-})
+const confirming = ref(false)
+const removing   = ref(false)
 
-function stat(v) {
-  const n = Number(v ?? 0)
-  return Math.max(0, Math.min(100, Number.isNaN(n) ? 0 : n))
+function confirmRemove () {
+  if (removing.value) return
+  removing.value = true
+  emit('remove', props.friend)          // emit the whole friend object
+  setTimeout(() => { removing.value = false; confirming.value = false }, 600)
 }
 </script>
