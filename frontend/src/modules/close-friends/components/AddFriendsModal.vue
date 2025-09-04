@@ -6,7 +6,7 @@
 
       <div class="relative flex justify-between items-center mb-5">
         <h2 class="text-lg font-bold text-slate-800">{{ mode === 'edit' ? 'Edit Friend' : 'Add Friend' }}</h2>
-        <button @click="$emit('close')" class="text-slate-400 hover:text-slate-700 transition">✕</button>
+        <button @click="$emit('close')" class="text-slate-400 hover:text-slate-700 transition" aria-label="Close">✕</button>
       </div>
 
       <form @submit.prevent="onSubmit" class="relative space-y-4">
@@ -26,109 +26,112 @@
               @keydown.enter.prevent="chooseHighlighted()"
               @keydown.esc.prevent="closeList()"
               class="w-full rounded-xl border border-sky-200 px-3 py-2 pr-9 shadow-sm focus:ring-2 focus:ring-sky-400 focus:outline-none bg-white/90"
+              autocomplete="off"
             />
             <span v-if="loadingUsers" class="absolute right-3 top-2.5 text-slate-400 animate-pulse">…</span>
 
-     <ul
-  v-show="listOpen && filtered.length"
-  class="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-sky-200 bg-white shadow-lg"
-  @mousedown.prevent
->
-  <li
-    v-for="(u, i) in filtered"
-    :key="u.id"
-    @click="addedSet.has(u.id) ? null : selectUser(u)"
-    :class="[
-      'px-3 py-2 cursor-pointer text-sm flex items-center justify-between',
-      i === highlighted ? 'bg-sky-100' : 'hover:bg-sky-50',
-      addedSet.has(u.id) ? 'opacity-60 cursor-not-allowed' : ''
-    ]"
-  >
-    <span class="truncate">@{{ u.username }}</span>
-
-    <!-- Only show the “Added” badge when we are not hiding added users -->
-    <span
-      v-if="addedSet.has(u.id) && SHOW_ADDED_IN_LIST"
-      class="ml-3 text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 ring-1 ring-slate-200"
-    >
-      Added
-    </span>
-  </li>
-</ul>
-
+            <ul
+              v-show="listOpen && filtered.length"
+              class="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-sky-200 bg-white shadow-lg"
+              @mousedown.prevent
+              role="listbox"
+            >
+              <li
+                v-for="(u, i) in filtered"
+                :key="u.id"
+                @click="addedSet.has(u.id) ? null : selectUser(u)"
+                :class="[
+                  'px-3 py-2 cursor-pointer text-sm flex items-center justify-between',
+                  i === highlighted ? 'bg-sky-100' : 'hover:bg-sky-50',
+                  addedSet.has(u.id) ? 'opacity-60 cursor-not-allowed' : ''
+                ]"
+                role="option"
+                :aria-selected="i === highlighted"
+              >
+                <span class="truncate">@{{ u.username }}</span>
+                <!-- Optional badge if you prefer to show that a user is already added; disabled by default -->
+                <span
+                  v-if="addedSet.has(u.id) && SHOW_ADDED_IN_LIST"
+                  class="ml-3 text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 ring-1 ring-slate-200"
+                >
+                  Added
+                </span>
+              </li>
+            </ul>
 
             <div v-show="listOpen && !filtered.length && !loadingUsers"
                  class="absolute z-20 mt-1 w-full rounded-xl border border-sky-200 bg-white shadow-lg px-3 py-2 text-sm text-slate-500">
               No users found.
             </div>
           </div>
-<p v-if="usersError" class="mt-1 text-xs text-rose-600">{{ usersError }}</p>
-<p v-if="form.username" class="mt-1 text-xs text-slate-500">
-  Selected: <span class="font-medium">@{{ form.username }}</span>
-</p>
-<!-- Removed the email display lines on purpose -->
-
-          <p v-if="form.email" class="mt-1 text-xs text-slate-500">
-            Email: <span class="font-medium">{{ form.email }}</span>
+          <p v-if="usersError" class="mt-1 text-xs text-rose-600">{{ usersError }}</p>
+          <p v-if="form.username" class="mt-1 text-xs text-slate-500">
+            Selected: <span class="font-medium">@{{ form.username }}</span>
           </p>
-          <p v-else-if="form.username" class="mt-1 text-xs text-rose-600">
-            This user has no email on file — cannot add friend (server requires email).
-          </p>
+          <!-- Intentionally not displaying email anywhere in the UI -->
         </div>
 
+        <!-- Relationship selector -->
         <div>
-  <label class="block text-sm font-semibold text-slate-700 mb-1">Relationship</label>
+          <label class="block text-sm font-semibold text-slate-700 mb-1">Relationship</label>
+          <select
+            v-model="selectedRelationship"
+            class="w-full rounded-xl border border-sky-200 px-3 py-2 shadow-sm focus:ring-2 focus:ring-sky-400 focus:outline-none bg-white/90"
+          >
+            <option value="" disabled>Select a relationship…</option>
+            <option v-for="opt in REL_OPTIONS" :key="opt" :value="opt">{{ opt }}</option>
+            <option value="Other…">Other…</option>
+          </select>
 
-  <!-- Native select with presets -->
-  <select
-    v-model="selectedRelationship"
-    class="w-full rounded-xl border border-sky-200 px-3 py-2 shadow-sm focus:ring-2 focus:ring-sky-400 focus:outline-none bg-white/90"
-  >
-    <option value="" disabled>Select a relationship…</option>
-    <option v-for="opt in REL_OPTIONS" :key="opt" :value="opt">{{ opt }}</option>
-    <option value="Other…">Other…</option>
-  </select>
+          <div v-if="selectedRelationship === 'Other…'" class="mt-2">
+            <input
+              v-model.trim="customRelationship"
+              type="text"
+              placeholder="Type a custom relationship (e.g., Project Advisor)"
+              class="w-full rounded-xl border border-sky-200 px-3 py-2 shadow-sm focus:ring-2 focus:ring-sky-400 focus:outline-none"
+            />
+            <p class="mt-1 text-xs text-slate-500">
+              Saving as: <span class="font-medium">{{ form.relationship || '—' }}</span>
+            </p>
+          </div>
+        </div>
 
-  <!-- Show when 'Other…' is chosen -->
-  <div v-if="selectedRelationship === 'Other…'" class="mt-2">
-    <input
-      v-model.trim="customRelationship"
-      type="text"
-      placeholder="Type a custom relationship (e.g., Project Advisor)"
-      class="w-full rounded-xl border border-sky-200 px-3 py-2 shadow-sm focus:ring-2 focus:ring-sky-400 focus:outline-none"
-    />
-    <p class="mt-1 text-xs text-slate-500">
-      Saving as: <span class="font-medium">{{ form.relationship || '—' }}</span>
-    </p>
-  </div>
-</div>
-
+        <!-- Tags -->
         <div>
           <label class="block text-sm font-semibold text-slate-700 mb-1">Tags</label>
-          <input v-model="tagsInput" type="text" placeholder="Comma-separated (e.g., Family, Buddy)"
-                 @keydown.enter.prevent="addTags"
-                 class="w-full rounded-xl border border-sky-200 px-3 py-2 shadow-sm focus:ring-2 focus:ring-sky-400 focus:outline-none" />
+          <input
+            v-model="tagsInput"
+            type="text"
+            placeholder="Comma-separated (e.g., Family, Buddy)"
+            @keydown.enter.prevent="addTags"
+            class="w-full rounded-xl border border-sky-200 px-3 py-2 shadow-sm focus:ring-2 focus:ring-sky-400 focus:outline-none"
+          />
           <div class="mt-2 flex flex-wrap gap-2">
-            <span v-for="(tag, idx) in form.tags" :key="idx"
-                  class="text-xs bg-sky-100 text-sky-800 px-2 py-1 rounded-full flex items-center gap-1 ring-1 ring-sky-200">
+            <span
+              v-for="(tag, idx) in form.tags"
+              :key="idx"
+              class="text-xs bg-sky-100 text-sky-800 px-2 py-1 rounded-full flex items-center gap-1 ring-1 ring-sky-200"
+            >
               #{{ tag }}
-              <button type="button" @click="removeTag(idx)" class="text-slate-400 hover:text-rose-500">✕</button>
+              <button type="button" @click="removeTag(idx)" class="text-slate-400 hover:text-rose-500" aria-label="Remove tag">✕</button>
             </span>
           </div>
         </div>
 
+        <!-- Emergency contact -->
         <div class="flex items-center gap-2">
           <input v-model="form.emergencycontact" type="checkbox" id="emergency" class="w-4 h-4 text-rose-500 rounded focus:ring-rose-400" />
           <label for="emergency" class="text-sm text-slate-700">Mark as Emergency Contact</label>
         </div>
 
+        <!-- Actions -->
         <div class="flex justify-end gap-2 pt-4">
           <button type="button" @click="$emit('close')" class="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-sm">
             Cancel
           </button>
           <button
             type="submit"
-            :disabled="!form.friendofuid || !form.email"
+            :disabled="!form.friendofuid"
             class="px-4 py-2 rounded-xl text-white font-semibold shadow-md transition hover:shadow-lg active:translate-y-[1px]
                    bg-[linear-gradient(180deg,#5EC4FF_0%,#3DA8FF_100%)]
                    disabled:opacity-50 disabled:cursor-not-allowed"
@@ -144,14 +147,13 @@
   </div>
 </template>
 
-
 <script setup>
 import { reactive, ref, watch, computed, onMounted } from 'vue'
 
 const props = defineProps({
   mode: { type: String, default: 'add' },
   friend: { type: Object, default: null },
-  // ⬇️ pass the IDs of users already added to your friend list
+  // Pass the IDs of users already added to your friend list
   alreadyAddedIds: { type: Array, default: () => [] }
 })
 
@@ -163,11 +165,12 @@ const form = reactive({
   relationship: '',
   tags: [],
   emergencycontact: false,
-  email: '',
-  phone: ''
+  email: '',      // captured for backend only; never shown
+  phone: ''       // captured silently if needed
 })
 
-const SHOW_ADDED_IN_LIST = false // set true if you prefer showing “Added” (disabled) rows
+// Toggle if you want to show a disabled "Added" badge in the list
+const SHOW_ADDED_IN_LIST = false
 
 const tagsInput = ref('')
 
@@ -214,15 +217,12 @@ onMounted(fetchProfiles)
 // Fast lookup for “already added”
 const addedSet = computed(() => new Set((props.alreadyAddedIds || []).map(String)))
 
+// Filter by username only (we do not surface email/phone in UI)
 const baseFiltered = computed(() => {
   const q = search.value.trim().toLowerCase()
   const base = userProfiles.value
   if (!q) return base.slice(0, 50)
-  return base.filter(u =>
-    u.username.toLowerCase().includes(q) ||
-    (u.email && u.email.toLowerCase().includes(q)) ||
-    (u.phone && u.phone.toLowerCase().includes(q))
-  ).slice(0, 50)
+  return base.filter(u => u.username.toLowerCase().includes(q)).slice(0, 50)
 })
 
 // Final filtered list: hide already-added unless SHOW_ADDED_IN_LIST = true
@@ -253,13 +253,11 @@ function selectUser(u) {
   if (addedSet.value.has(u.id)) return // disable selection for added users
   form.friendofuid = u.id
   form.username    = u.username
-  form.email       = u.email || ''   // still captured for backend; just not displayed
+  form.email       = u.email || ''   // captured for backend; not displayed
   form.phone       = u.phone || ''
   search.value     = u.username
   closeList()
 }
-
-// (…keep your relationship dropdown/watchers/edit-mode prefill etc. unchanged)
 
 function addTags() {
   if (!tagsInput.value.trim()) return
@@ -270,7 +268,8 @@ function removeTag(i) { form.tags.splice(i, 1) }
 
 function onSubmit() {
   if (!form.friendofuid) { alert('Please select a user from the list.'); return }
-  if (!form.email) { alert('Selected user has no email; server requires email.'); return }
+  // If your backend requires email, keep this check (silent in UI)
+  if (!form.email) { alert('Selected user has no email; cannot add friend.'); return }
   emit('save', { ...form })
 }
 
@@ -281,9 +280,10 @@ const REL_OPTIONS = [
   'Classmate',
   'Sibling',
   'Parent',
-  'Partner',]
+  'Partner',
+]
 
-const selectedRelationship = ref('')    // what’s selected in the <select>
+const selectedRelationship = ref('')    // current value in <select>
 const customRelationship   = ref('')    // free-text when 'Other…' is chosen
 
 // Keep form.relationship in sync with the UI
@@ -320,6 +320,3 @@ watch(() => props.friend, (val) => {
   }
 }, { immediate: true })
 </script>
-
-
-

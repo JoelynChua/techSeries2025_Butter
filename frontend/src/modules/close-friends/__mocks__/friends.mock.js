@@ -31,7 +31,7 @@ const mockFriends = [
     emergencyContact: false,
     notifyOn: { redFlags: true, lowMoodStreak: false, sleepDrop: true },
     status: 'active',
-    emotions: { mood: 65, energy: 45, sleep: 59 },
+    emotions: { mood: 0, energy: 15, sleep: 39 },
   },
   {
     id: 'f_3',
