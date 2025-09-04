@@ -79,21 +79,12 @@ function mascotByEmotion(e) {
   const { mood, energy, sleep } = normalizeEmotion(e)
   const avg = (mood + energy + sleep) / 3
 
-  // Specific conditions first
-  if (sleep < 35 && avg < 60) return mascot.Pout            // sleepy / cranky
-  if (avg < 35)            return mascot.Concerned          // not doing great
-  if (avg < 45)            return mascot.Support            // needs a boost
-
-  // Positive range
-  if (avg >= 90) {
-    // sprinkle hearts if super high mood
-    return mood >= 92 ? mascot.Love : mascot.Proud
-  }
-  if (avg >= 75) {
-    return (mood >= 80 && energy >= 75) ? mascot.Proud : mascot.Happy
-  }
-  if (avg >= 58) return mascot.GoodJob
-
+  if (sleep < 35 && avg < 60) return mascot.Pout
+  if (avg < 35)               return mascot.Concerned
+  if (avg < 45)               return mascot.Support
+  if (avg >= 90)              return mood >= 92 ? mascot.Love : mascot.Proud
+  if (avg >= 75)              return (mood >= 80 && energy >= 75) ? mascot.Proud : mascot.Happy
+  if (avg >= 58)              return mascot.GoodJob
   return mascot.Blank
 }
 
@@ -102,11 +93,8 @@ function mascotByEmotion(e) {
 ------------------------- */
 function friendRowsToUi(rows) {
   return rows.map(r => {
-    const id =
-      r.id ?? r.friendId ?? r.userId ?? Math.random().toString(36).slice(2)
-
+    const id = r.id ?? r.friendId ?? r.userId ?? Math.random().toString(36).slice(2)
     const emotions = r.emotions ?? { mood: 70, energy: 65, sleep: 60 }
-
     return {
       id,
       username: r.username ?? '',
@@ -119,7 +107,6 @@ function friendRowsToUi(rows) {
       handle: r.handle ?? '',
       status: r.status ?? 'active',
       emotions,
-      // Use backend avatar if provided; else choose by emotion
       avatar: r.avatar || mascotByEmotion(emotions),
       emergencyContact: !!(r.emergencycontact ?? r.emergencyContact),
       friendofuid: r.friendofuid ?? r.ownerUid ?? r.ownerId ?? OWNER_UID
@@ -166,7 +153,6 @@ async function fetchFriends () {
     friends.value = []
     friendsError.value = `Could not load friends (${e.message}). If your API requires a user id, set one in localStorage: ownerUid=123`
     console.error('[friends] load failed:', e, { tried: candidateFriendUrls() })
-    // toast instead of alert
     pushToast({
       type: 'error',
       title: 'Load Failed',
@@ -177,6 +163,37 @@ async function fetchFriends () {
   }
 }
 onMounted(fetchFriends)
+
+/* -------------------------
+   Delete friend (API)
+------------------------- */
+async function deleteFriend(friend) {
+  const params = new URLSearchParams()
+  params.set('id', String(friend.id))
+  // Only guard if we actually have friend.friendofuid (from the row)
+  if (friend.friendofuid != null && friend.friendofuid !== '') {
+    params.set('friendofuid', String(friend.friendofuid))
+  }
+  const url = `${API_BASE}/friends?${params.toString()}`
+  const res = await fetch(url, { method: 'DELETE', headers: { Accept: 'application/json' } })
+  if (!res.ok) {
+    let msg = ''
+    try { msg = JSON.stringify(await res.json()) } catch { try { msg = await res.text() } catch {} }
+    throw new Error(`HTTP ${res.status}${msg ? ` - ${msg}` : ''}`)
+  }
+  return res.json()
+}
+
+async function onRemoveFriend(friend) {
+  try {
+    await deleteFriend(friend)
+    pushToast({ type: 'success', title: 'Removed', message: `Deleted ${friend.username || 'friend'}.` })
+    await fetchFriends()
+  } catch (e) {
+    pushToast({ type: 'error', title: 'Delete failed', message: e.message || 'Could not delete friend.' })
+  }
+}
+
 
 /* -------------------------
    Filter & actions
@@ -239,6 +256,8 @@ async function saveFriend (payload) {
   } catch (e) {
     console.error('saveFriend error:', e)
     pushToast({ type: 'error', title: 'Save failed', message: e.message || 'Could not add friend.' })
+    // ensure modal closes on error as requested
+    showForm.value = false
   }
 }
 
@@ -247,7 +266,7 @@ function onCloseHeader () {}
 
 <template>
   <div class="min-h-screen relative overflow-x-hidden">
-    <!-- keep your original theme -->
+    <!-- theme -->
     <div class="absolute inset-0 bg-gradient-to-b from-sky-200 to-sky-300"></div>
     <div
       class="pointer-events-none absolute inset-0 opacity-20"
@@ -260,7 +279,7 @@ function onCloseHeader () {}
       "
     ></div>
 
-    <!-- Toast stack (top-right) -->
+    <!-- Toast stack -->
     <div class="fixed top-4 right-4 z-50 w-[92vw] max-w-sm space-y-2">
       <TransitionGroup
         tag="div"
@@ -337,7 +356,7 @@ function onCloseHeader () {}
           v-for="f in filteredFriends"
           :key="f.id"
           :friend="f"
-          @remove="() => {}"
+          @remove="onRemoveFriend"
           @update="() => {}"
           @approve="() => {}"
           @resend="() => {}"
@@ -359,6 +378,7 @@ function onCloseHeader () {}
         :friend="selectedFriend"
         @save="saveFriend"
         @close="closeForm"
+        @invalid="(e) => { pushToast({ type:'error', title:'Form error', message:e?.message || 'Invalid form' }); closeForm(); }"
       />
     </div>
   </div>

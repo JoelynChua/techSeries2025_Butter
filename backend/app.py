@@ -839,6 +839,67 @@ def getFriendsByfriendofuid():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/friends", methods=["DELETE"])
+def deleteFriendById():
+    """
+    Delete a friend by id (optionally guard by friendofuid)
+    ---
+    tags:
+      - friends
+    parameters:
+      - in: query
+        name: id
+        type: integer
+        required: true
+        description: Friend row id to delete
+        example: 123
+      - in: query
+        name: friendofuid
+        type: integer
+        required: false
+        description: (Optional) Ensure the row belongs to this owner
+        example: 42
+    responses:
+      200:
+        description: Deleted
+      400:
+        description: Missing id
+      404:
+        description: Row not found or owner mismatch
+      500:
+        description: Server error
+    """
+    try:
+      row_id = request.args.get("id", type=int)
+      owner  = request.args.get("friendofuid", type=int)
+
+      if row_id is None:
+          return jsonify({"error": "Missing id"}), 400
+
+      # Build a guarded delete if friendofuid is supplied
+      q = supabase.table(friends_table).select("id, friendofuid").eq("id", row_id).limit(1)
+      if owner is not None:
+          q = q.eq("friendofuid", owner)
+
+      # Check existence (and ownership if provided)
+      exists_resp = q.execute()
+      exists_rows = _exec_data(exists_resp) or []
+      if not exists_rows:
+          # Either not found, or owner mismatch
+          return jsonify({"error": "Row not found"}), 404
+
+      # Perform delete with same constraints
+      del_q = supabase.table(friends_table).delete().eq("id", row_id)
+      if owner is not None:
+          del_q = del_q.eq("friendofuid", owner)
+
+      del_resp = del_q.execute()
+      _ = _exec_data(del_resp)  # normalize/raise if needed
+
+      return jsonify({"message": "Deleted", "id": row_id}), 200
+
+    except Exception as e:
+      return jsonify({"error": str(e)}), 500
 
 @app.route("/friends", methods=["POST"])
 def addFriend():
