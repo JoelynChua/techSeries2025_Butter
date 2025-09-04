@@ -1,0 +1,16 @@
+{
+  "node": {
+    "791144427ad371a0953f5e1c998d57a65491b46e": {
+      "workers": {
+        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Flimzeyuen%2FDesktop%2FY3S1%20things%2FHackathons%2FtechSeries2025_Butter%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fserver-actions.js%22%2C%5B%22invalidateCacheAction%22%5D%5D%5D&encryptionKey=QflojVmLVif3ekd4%2BOhXe88FFMGvfIK6Af4ZMQSNc8U%3D&__client_imported__=true!",
+        "app/_not-found/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Flimzeyuen%2FDesktop%2FY3S1%20things%2FHackathons%2FtechSeries2025_Butter%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fserver-actions.js%22%2C%5B%22invalidateCacheAction%22%5D%5D%5D&encryptionKey=QflojVmLVif3ekd4%2BOhXe88FFMGvfIK6Af4ZMQSNc8U%3D&__client_imported__=true!"
+      },
+      "layer": {
+        "app/page": "action-browser",
+        "app/_not-found/page": "action-browser"
+      }
+    }
+  },
+  "edge": {},
+  "encryptionKey": "QflojVmLVif3ekd4+OhXe88FFMGvfIK6Af4ZMQSNc8U="
+}
