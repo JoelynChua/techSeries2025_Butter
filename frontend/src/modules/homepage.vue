@@ -1,19 +1,7 @@
 <template>
   <main class="home relative overflow-x-hidden">
-    <!-- Background gradient -->
-    <div class="absolute inset-0 bg-gradient-to-b from-sky-200 to-sky-300"></div>
-
-    <!-- Dotted overlay -->
-    <div
-      class="pointer-events-none absolute inset-0 opacity-20"
-      style="
-        background-image:
-          radial-gradient(white 18%, transparent 19%),
-          radial-gradient(white 18%, transparent 19%);
-        background-position: 0 0, 16px 16px;
-        background-size: 32px 32px;
-      "
-    ></div>
+    <!-- Background image -->
+    <div class="absolute inset-0 bg-cover bg-center home-bg"></div>
 
     <!-- Foreground content -->
     <div class="relative z-10 onboard-card">
@@ -29,7 +17,7 @@
       </div>
 
       <p class="intro">
-        Hi there! I’m Veggie, and I’m going to guide you through your first steps in Eco Reality.
+        Hi there! I’m Jewey, your bestie and most understanding animal friend.
         You seem to be totally ready to bring more health and thoughtfulness to your life, so
         let’s get it started!
       </p>
@@ -109,9 +97,15 @@ async function randomiseFeeling() {
 .home {
   min-height: 100vh;
   display: grid;
-  place-items: center;
-  padding: 24px;
+  justify-items: center;  /* keep it centered horizontally */
+  align-items: start;     /* push to top instead of center */
+  padding: 90px 24px;     /* less top padding */
   box-sizing: border-box;
+}
+
+/* New background image */
+.home-bg {
+  background-image: url("../assets/homePageBG.png");
 }
 
 .onboard-card {
@@ -145,15 +139,9 @@ async function randomiseFeeling() {
 }
 
 @keyframes bounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  30% {
-    transform: translateY(-15px);
-  }
-  60% {
-    transform: translateY(-8px);
-  }
+  0%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-15px); }
+  60% { transform: translateY(-8px); }
 }
 
 .speech-bubble {
