@@ -48,32 +48,38 @@
   </template>
   
   <script setup>
-  import { ref } from 'vue'
-  import axios from 'axios'
-  
-  const email = ref('')
-  const password = ref('')
-  const baseURL = import.meta.env.VITE_API_BASE || 'http://localhost:5000'
-  
-  async function handleLogin() {
-    try {
-      const resp = await axios.post(`${baseURL}/login`, {
-        email: email.value,
-        password: password.value
-      })
-      console.log(resp.data)
-      if (resp.data?.user) {
-        alert("🎉 Login successful!")
-        // TODO: Redirect to dashboard/home
-      } else {
-        alert("❌ Invalid email or password")
-      }
-    } catch (err) {
-      console.error("Login failed:", err)
-      alert("⚠️ Something went wrong. Please try again.")
+import { ref } from 'vue'
+import { useRouter } from 'vue-router' 
+import axios from 'axios'
+
+const email = ref('')
+const password = ref('')
+const baseURL = import.meta.env.VITE_API_BASE || 'http://localhost:5000'
+const router = useRouter() 
+
+async function handleLogin() {
+  try {
+    const resp = await axios.post(`${baseURL}/login`, {
+      email: email.value,
+      password: password.value
+    })
+    // console.log(resp.data)
+    // Check if the response contains a "user" object
+    if (resp.data?.user) {
+      // Store userId in session storage
+      sessionStorage.setItem('userId', resp.data.user.userId)
+      alert(`🎉 Login successful! Welcome, ${resp.data.user.email || 'User'}!`)
+      // Redirect to the dashboard or home page
+      router.push('/') // Use router to navigate
+    } else if (resp.data?.error) {
+      alert("❌ Invalid email or password")
     }
+  } catch (err) {
+    // console.error("Login failed:", err)
+    alert("❌ Invalid email or password")
   }
-  </script>
+}
+</script>
   
   <style scoped>
   .home {
