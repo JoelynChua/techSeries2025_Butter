@@ -125,7 +125,7 @@ const toggleAudio = async () => {
   flex: 1;
   overflow-y: auto;
   /* padding-bottom: 60px; give space above navbar */
-  max-height: 540px;
+  /* max-height: 540px; */
   /* Hide scrollbar but keep scrolling */
   scrollbar-width: none;
   /* Firefox */
@@ -144,6 +144,7 @@ const toggleAudio = async () => {
   bottom: 0;
   left: 0;
   width: 100%;
+  display: contents;
 }
 
 /* Audio toggle button (top-right) */
