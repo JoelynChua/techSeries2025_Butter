@@ -20,9 +20,9 @@
       <form @submit.prevent="handleSignUp" class="signup-form">
         <div class="form-group">
           <input
-            v-model="name"
+            v-model="username"
             type="text"
-            placeholder="Name"
+            placeholder="Username"
             required
             class="form-input"
           />
@@ -77,7 +77,7 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import notificationAlert from '../components/notificationAlert.vue'
 
-const name = ref('')
+const username = ref('')
 const email = ref('')
 const mobile = ref('')
 const password = ref('')
@@ -115,7 +115,7 @@ async function handleSignUp() {
 
   try {
     const signupResp = await axios.post(`${baseURL}/signup`, {
-      name: username.value,
+      username: username.value,
       email: email.value,
       mobile: mobile.value,
       password: password.value,
