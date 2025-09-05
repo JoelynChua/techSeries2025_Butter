@@ -1,96 +1,105 @@
 from flask import Blueprint, request, jsonify
-from core.db import supabase, exec_data, QUIZQN_TABLE  # make QUIZQN_TABLE = "questions"
+from collections import Counter
+from core.db import supabase, exec_data, QUIZQN_TABLE  # ensure: QUIZQN_TABLE = "questions"
 
 bp = Blueprint("quiz", __name__)
 
+# ---------- helpers ----------
+def truthy(v, default=False):
+    if v is None:
+        return default
+    if isinstance(v, bool):
+        return v
+    s = str(v).strip().lower()
+    return s in ("1","true","t","yes","y","on")
+
+def to_float(v):
+    if v is None: return None
+    s = str(v).strip()
+    if s == "": return None
+    try: return float(s)
+    except ValueError: return None
+
+def to_int(v):
+    f = to_float(v)
+    return int(f) if f is not None else None
+
+def norm_str(v):
+    if v is None: return None
+    s = str(v).strip()
+    return s if s != "" else None
+
+def normalize_row(r):
+    return {
+        "key": r.get("key"),
+        "prompt": r.get("prompt"),
+        "input_type": (r.get("input_type") or "").strip().lower(),
+        "unit": norm_str(r.get("unit")),
+        "min_value": to_float(r.get("min_value")),
+        "max_value": to_float(r.get("max_value")),
+        "step": to_float(r.get("step")),
+        "scale_positive_high": truthy(r.get("scale_positive_high"), default=True),
+        "required": truthy(r.get("required"), default=True),
+        "section": (r.get("section") or "").strip(),
+        "display_order": to_int(r.get("display_order")) or 0,
+        "active": truthy(r.get("active"), default=True),
+    }
+
+# ---------- endpoint ----------
 @bp.route("/quizqn", methods=["GET"])
 def get_quizqn():
     """
-    Get question catalog entries (from the CSV-backed table)
-    ---
-    tags:
-      - questions
-    parameters:
-      - in: query
-        name: id
-        type: integer
-        required: false
-        description: Return a single question by numeric id
-        example: 3
-      - in: query
-        name: key
-        type: string
-        required: false
-        description: Return a single question by key (e.g., 'sleep_hours')
-        example: sleep_hours
-      - in: query
-        name: section
-        type: string
-        required: false
-        description: Filter by section (e.g., 'daily', 'weekly')
-        example: daily
-      - in: query
-        name: include_inactive
-        type: boolean
-        required: false
-        description: Include inactive questions (default false)
-        example: false
-    responses:
-      200: {description: Row or list of rows}
-      404: {description: Row not found (when id/key provided)}
-      500: {description: Server error}
+    Get question catalog entries (CSV-backed table)
+    Query:
+      key: string (optional) -> single row by key
+      section: string (default 'daily'; use 'all' to disable)
+      include_inactive: bool (default false)
     """
     try:
-        # Columns that exist in your CSV/table
-        cols = [
-            "id",
-            "key",
-            "prompt",
-            "input_type",
-            "unit",
-            "min_value",
-            "max_value",
-            "step",
-            "scale_positive_high",
-            "required",
-            "section",
-            "display_order",
-            "active",
-        ]
+        cols = ["key","prompt","input_type","unit","min_value","max_value","step",
+                "scale_positive_high","required","section","display_order","active"]
 
-        q_id = request.args.get("id", type=int)
         q_key = request.args.get("key", type=str)
-        section = request.args.get("section", default="daily", type=str)
-        include_inactive = request.args.get("include_inactive", default="false").lower() in ("1", "true", "yes")
+        section = (request.args.get("section") or "daily").strip()
+        include_inactive = truthy(request.args.get("include_inactive"), default=False)
 
-        # Fetch a single row by id or key
-        if q_id is not None or q_key:
-            query = supabase.table(QUIZQN_TABLE).select(",".join(cols))
-            if q_id is not None:
-                query = query.eq("id", q_id)
-            if q_key:
-                query = query.eq("key", q_key)
+        # Always fetch all once; normalize in Python (robust to CSV types)
+        resp = supabase.table(QUIZQN_TABLE).select(",".join(cols)).execute()
+        raw_rows = exec_data(resp) or []
 
-            # If caller didn't ask for inactive, enforce active==true
-            if not include_inactive:
-                query = query.eq("active", True)
+        # --- DEBUG: what's actually in the table?
+        sections = [str(r.get("section") or "").strip().lower() for r in raw_rows]
+        actives = [str(r.get("active")).strip().lower() for r in raw_rows]
+        # print(f"get_quizqn: raw_rows={len(raw_rows)} sections={Counter(sections)} active={Counter(actives)} table={QUIZQN_TABLE}")
 
-            resp = query.limit(1).execute()
-            data = exec_data(resp)
-            if not data:
+        rows = [normalize_row(r) for r in raw_rows]
+
+        # Single row by key (after normalization)
+        if q_key:
+            row = next((r for r in rows if r["key"] == q_key), None)
+            if not row:
+                # print(f"get_quizqn: key='{q_key}' not found")
                 return jsonify({"error": "Row not found"}), 404
-            return jsonify({"row": data[0]}), 200
+            if section.lower() != "all" and row["section"].strip().lower() != section.lower():
+                # print(f"get_quizqn: key='{q_key}' section mismatch row='{row['section']}' want='{section}'")
+                return jsonify({"error": "Row not found"}), 404
+            if not include_inactive and not row["active"]:
+                # print(f"get_quizqn: key='{q_key}' inactive")
+                return jsonify({"error": "Row not found"}), 404
+            return jsonify({"row": row}), 200
 
-        # List query: filter by section and active, order by display_order ASC
-        query = supabase.table(QUIZQN_TABLE).select(",".join(cols))
-        if section:
-            query = query.eq("section", section)
+        # List: filter by section (unless 'all') and activity
+        if section.lower() != "all":
+            want = section.lower()
+            rows = [r for r in rows if (r["section"] or "").strip().lower() == want]
         if not include_inactive:
-            query = query.eq("active", True)
+            rows = [r for r in rows if r["active"]]
 
-        resp = query.order("display_order", desc=False).execute()
-        rows = exec_data(resp) or []
+        rows.sort(key=lambda r: (r["display_order"], r["key"] or ""))
+
+        # print(f"get_quizqn: returning {len(rows)} rows (section={section}, include_inactive={include_inactive})")
         return jsonify({"rows": rows, "count": len(rows)}), 200
 
     except Exception as e:
+        # print("Error in get_quizqn:", e)
         return jsonify({"error": str(e)}), 500
