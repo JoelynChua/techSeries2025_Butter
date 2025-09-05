@@ -115,7 +115,7 @@ async function handleSignUp() {
 
   try {
     const signupResp = await axios.post(`${baseURL}/signup`, {
-      name: name.value,
+      name: username.value,
       email: email.value,
       mobile: mobile.value,
       password: password.value,
