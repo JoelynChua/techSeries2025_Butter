@@ -92,8 +92,270 @@ def get_mood_metrics():
 @bp.route("/moodMetric", methods=["POST"])
 def create_mood_metric():
     """
-    Create a mood metric entry (finalMoodScores computed from scoringWeights)
+    Create a mood metric entry
+
+    Computes a 0–10 **finalMoodScores** using weights from **public.scoringWeights**,
+    looks up the matching **score band** from **public.scoreBands**, inserts the row,
+    and returns the created row together with the computed score and band metadata.
+
+    ---
+    tags:
+      - moodMetric
+    summary: Create a mood metric, compute final score, and return matching score band
+    operationId: createMoodMetric
+    consumes:
+      - application/json
+    produces:
+      - application/json
+
+    parameters:
+      - in: body
+        name: body
+        required: true
+        description: Daily mood/health inputs (only userId is required)
+        schema:
+          $ref: '#/definitions/MoodMetricCreateRequest'
+
+    responses:
+      201:
+        description: Created mood metric with computed score and band
+        schema:
+          $ref: '#/definitions/MoodMetricCreateResponse'
+        examples:
+          application/json:
+            message: Created
+            finalScore: 7.4
+            scoreBand:
+              band_key: solid
+              label: Solid
+              min_score: 6.0
+              max_score: 7.9
+              inclusive_min: true
+              inclusive_max: true
+              message: "You’ve got momentum."
+              crisis_note: ""
+              display_order: 30
+              tips:
+                - "20–30 min light exercise"
+                - "10 min focused deep work"
+                - "Message a friend to connect"
+                - "Plan a simple dinner"
+                - "Screen-free wind-down 30–60 min"
+            row:
+              id: 123
+              userId: 42
+              created_timestamp: "2025-09-05 15:12:23"
+              sleepHours: 7.5
+              exerciseHours: 0.5
+              workingHrs: 8
+              sleepQuality: 6
+              mood: 7
+              energy: 6
+              stress: 3
+              timeOutsideMin: 25
+              connectwithfamily: true
+              notes: "Coffee with friend"
+              finalMoodScores: 7.4
+
+      400:
+        description: Validation error (e.g., missing userId)
+        schema:
+          $ref: '#/definitions/Error'
+        examples:
+          application/json:
+            error: "Missing userId"
+
+      500:
+        description: Server/database error
+        schema:
+          $ref: '#/definitions/Error'
+        examples:
+          application/json:
+            error: "Database insert failed"
+
+    definitions:
+
+      MoodMetricCreateRequest:
+        type: object
+        required: [userId]
+        properties:
+          userId:
+            type: integer
+            example: 42
+          sleepHours:
+            type: number
+            format: float
+            minimum: 0
+            maximum: 24
+            example: 7.5
+          exerciseHours:
+            type: number
+            format: float
+            minimum: 0
+            maximum: 24
+            description: Hours of exercise (client may convert minutes → hours)
+            example: 0.5
+          workingHrs:
+            type: number
+            format: float
+            minimum: 0
+            maximum: 24
+            example: 8
+          sleepQuality:
+            type: integer
+            minimum: 1
+            maximum: 10
+            example: 6
+          mood:
+            type: integer
+            minimum: 1
+            maximum: 10
+            example: 7
+          energy:
+            type: integer
+            minimum: 1
+            maximum: 10
+            example: 6
+          stress:
+            type: integer
+            minimum: 1
+            maximum: 10
+            example: 3
+          timeOutsideMin:
+            type: integer
+            minimum: 0
+            maximum: 600
+            example: 25
+          connectwithfamily:
+            type: boolean
+            example: true
+          notes:
+            type: string
+            maxLength: 1000
+            example: "Coffee with friend"
+          created_timestamp:
+            type: string
+            description: "If omitted, server sets UTC now (YYYY-MM-DD HH:MM:SS)"
+            example: "2025-09-02 21:30:00"
+
+      MoodMetricRow:
+        type: object
+        description: Row as stored in the mood metrics table
+        properties:
+          id:
+            type: integer
+            example: 123
+          userId:
+            type: integer
+            example: 42
+          created_timestamp:
+            type: string
+            example: "2025-09-05 15:12:23"
+          sleepHours:
+            type: number
+            format: float
+            example: 7.5
+          exerciseHours:
+            type: number
+            format: float
+            example: 0.5
+          workingHrs:
+            type: number
+            format: float
+            example: 8
+          sleepQuality:
+            type: integer
+            example: 6
+          mood:
+            type: integer
+            example: 7
+          energy:
+            type: integer
+            example: 6
+          stress:
+            type: integer
+            example: 3
+          timeOutsideMin:
+            type: integer
+            example: 25
+          connectwithfamily:
+            type: boolean
+            example: true
+          notes:
+            type: string
+            example: "Coffee with friend"
+          finalMoodScores:
+            type: number
+            format: float
+            example: 7.4
+
+      ScoreBand:
+        type: object
+        properties:
+          band_key:
+            type: string
+            example: solid
+          label:
+            type: string
+            example: Solid
+          min_score:
+            type: number
+            format: float
+            example: 6.0
+          max_score:
+            type: number
+            format: float
+            example: 7.9
+          inclusive_min:
+            type: boolean
+            example: true
+          inclusive_max:
+            type: boolean
+            example: true
+          message:
+            type: string
+            example: "You’ve got momentum."
+          crisis_note:
+            type: string
+            example: ""
+          display_order:
+            type: integer
+            example: 30
+          tips:
+            type: array
+            items:
+              type: string
+            example:
+              - "20–30 min light exercise"
+              - "10 min focused deep work"
+              - "Message a friend to connect"
+              - "Plan a simple dinner"
+              - "Screen-free wind-down 30–60 min"
+
+      MoodMetricCreateResponse:
+        type: object
+        properties:
+          message:
+            type: string
+            example: Created
+          finalScore:
+            type: number
+            format: float
+            example: 7.4
+          scoreBand:
+            $ref: '#/definitions/ScoreBand'
+          row:
+            $ref: '#/definitions/MoodMetricRow'
+
+      Error:
+        type: object
+        properties:
+          error:
+            type: string
+            example: "Missing userId"
     """
+    import json  # local import for tips parsing
+
     data = request.get_json(silent=True) or {}
     user_id = data.get("userId")
     if user_id is None:
@@ -119,6 +381,64 @@ def create_mood_metric():
 
     # Compute final score (0–10); ignore any client-provided value
     computed_score = compute_final_score_from_weights(raw_values)
+    print("Computed final score:", computed_score)
+    # ------- fetch matching band from public.scoreBands (no nested funcs) -------
+    score_band = None
+    if computed_score is not None:
+        cols = (
+            "band_key,label,min_score,max_score,inclusive_min,inclusive_max,message,crisis_note,display_order,tips"
+        )
+        try:
+            resp_bands = (
+                supabase.table("scoreBands")
+                .select(cols)
+                .order("display_order", desc=False)
+                .execute()
+            )
+            bands = exec_data(resp_bands) or []
+        except Exception as e:
+            print("scoreBands fetch error:", e)
+            bands = []
+
+        for r in bands:
+            lo = as_float(r.get("min_score"))
+            hi = as_float(r.get("max_score"))
+            if lo is None or hi is None:
+                continue
+            inc_lo = as_bool(r.get("inclusive_min"))
+            if inc_lo is None: inc_lo = True
+            inc_hi = as_bool(r.get("inclusive_max"))
+            if inc_hi is None: inc_hi = True
+
+            lo_ok = computed_score >= lo if inc_lo else computed_score > lo
+            hi_ok = computed_score <= hi if inc_hi else computed_score < hi
+            if lo_ok and hi_ok:
+                tips_raw = r.get("tips")
+                if isinstance(tips_raw, list):
+                    tips = tips_raw
+                elif isinstance(tips_raw, str) and tips_raw.strip():
+                    try:
+                        tips = json.loads(tips_raw)
+                    except Exception:
+                        tips = [tips_raw]
+                else:
+                    tips = []
+
+                score_band = {
+                    "band_key": r.get("band_key"),
+                    "label": r.get("label"),
+                    "min_score": lo,
+                    "max_score": hi,
+                    "inclusive_min": bool(inc_lo),
+                    "inclusive_max": bool(inc_hi),
+                    "message": r.get("message"),
+                    "crisis_note": r.get("crisis_note"),
+                    "display_order": as_int(r.get("display_order")),
+                    "tips": tips,
+                }
+                break
+    print("Matched score band:", score_band)
+    # ---------------------------------------------------------------------------
 
     payload = {
         "userId": raw_values["userId"],
@@ -135,14 +455,20 @@ def create_mood_metric():
         "finalMoodScores": computed_score,
         "created_timestamp": data.get("created_timestamp") or now_iso(),
     }
-    # Drop Nones so we don't overwrite with NULLs
+    # Drop Nones to avoid overwriting with NULLs
     payload = {k: v for k, v in payload.items() if v is not None}
 
     try:
         resp = supabase.table(MOOD_TABLE).insert(payload).execute()
         created = exec_data(resp)
-        return jsonify({"message": "Created", "row": created[0] if created else None}), 201
+        return jsonify({
+            "message": "Created",
+            "row": created[0] if created else None,
+            "finalScore": computed_score,
+            "scoreBand": score_band
+        }), 201
     except Exception as e:
+        print("Error creating mood metric:", e)
         return jsonify({"error": str(e)}), 500
 
 
@@ -344,6 +670,7 @@ def compute_final_score_from_weights(raw_values):
         )
         weight_rows = exec_data(resp) or []
     except Exception as e:
+        print("compute_final_score_from_weights: failed to fetch weights:", e)
         weight_rows = []
 
     # Fallback defaults if table empty

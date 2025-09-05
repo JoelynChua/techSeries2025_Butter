@@ -37,7 +37,7 @@
                 ),
               }">
                 {{ answers[currentQuestion.field_name] }} <span v-if="currentQuestion.unit">{{ currentQuestion.unit
-                  }}</span>
+                }}</span>
               </div>
               <input ref="slider" type="range" :min="currentQuestion.config.min" :max="currentQuestion.config.max"
                 :step="currentQuestion.config.step" v-model.number="answers[currentQuestion.field_name]"
@@ -49,7 +49,7 @@
             </div>
             <p class="text-xl font-bold mt-4 text-center">
               {{ answers[currentQuestion.field_name] }} <span v-if="currentQuestion.unit">{{ currentQuestion.unit
-                }}</span>
+              }}</span>
             </p>
           </div>
 
@@ -73,11 +73,39 @@
         <!-- Results -->
         <div v-if="showResults" class="text-center">
           <h3 class="text-2xl font-bold text-slate-800 mb-2">Today's Score</h3>
-          <p class="text-5xl font-extrabold text-slate-900">
-            {{ finalScoreDisplay }}
-          </p>
+<p class="text-5xl font-extrabold text-slate-900">{{ Number(finalScore).toFixed(1) }}</p>
+<p v-if="scoreBand?.label" class="text-5xl font-extrabold text-slate-900">
+  {{ scoreBand.label }}
+</p>
           <p class="mt-1 text-slate-600 text-lg">out of 10</p>
+
+          <!-- Band details -->
+<div v-if="scoreBand" class="mt-6 text-left mx-auto max-w-md rounded-xl p-4 border text-sm">
+  <div class="flex items-center justify-between mb-1">
+    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-white">
+      {{ scoreBand.label }}
+    </span>
+    <span class="text-xs">
+      {{ Number(scoreBand.min_score).toFixed(1) }}–{{ Number(scoreBand.max_score).toFixed(1) }}
+    </span>
+  </div>
+
+  <p class="text-slate-800 mb-2">
+    {{ scoreBand.message }}
+  </p>
+
+  <ul class="list-disc pl-5 space-y-1 text-slate-700 text-xs">
+    <li v-for="tip in bandTips" :key="tip">{{ tip }}</li>
+  </ul>
+
+  <p v-if="scoreBand.crisis_note" class="mt-3 text-xs font-medium">
+    {{ scoreBand.crisis_note }}
+  </p>
+</div>
+
+
         </div>
+
 
       </div>
 
@@ -109,7 +137,8 @@ export default {
       currentQuestionIndex: 0,
       showResults: false,
       answers: {},
-      finalScore: null, // ⬅️ added
+      finalScore: null,
+      scoreBand: null,
     };
   },
   computed: {
@@ -135,10 +164,9 @@ export default {
       }
       return false;
     },
-    finalScoreDisplay() {
-      return this.finalScore === null || this.finalScore === undefined
-        ? "—"
-        : Number(this.finalScore).toFixed(1);
+    bandTips() {
+      const t = this.scoreBand?.tips;
+      return Array.isArray(t) ? t.slice(0, 5) : [];
     },
   },
   methods: {
@@ -268,9 +296,10 @@ export default {
       try {
         const payload = this.buildSubmissionPayload();
         const resp = await axios.post(`${baseURL}/moodMetric`, payload);
-        // backend returns { message, row }, where row.finalMoodScores is 0–10
-        this.finalScore = resp?.data?.row?.finalMoodScores ?? null;
+        this.finalScore = resp?.data?.finalScore ?? resp?.data?.row?.finalMoodScores ?? null;
+        this.scoreBand = resp?.data?.scoreBand ?? null;   
         this.showResults = true;
+        console.log("Quiz submitted successfully:", resp.data);
       } catch (error) {
         console.error("Failed to submit quiz:", error);
         alert("There was an error submitting your quiz. Please try again.");
