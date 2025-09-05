@@ -48,7 +48,7 @@ const navItems = ref([
   {
     name: "Home",
     label: "Home",
-    path: "/",
+    path: "/homePage",
     icon: getIconUrl("home"),
     scale: 1.5,
   },

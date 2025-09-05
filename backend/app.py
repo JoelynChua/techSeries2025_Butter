@@ -17,7 +17,7 @@ def create_app():
     app.config["SWAGGER"] = Settings.SWAGGER
 
     # CORS - Updated for Vercel deployment
-    CORS(app, resources={r"/*": {"origins": [Settings.FRONTEND_ORIGIN, "https://*.vercel.app"]}})
+    CORS(app, resources={r"/*": {"origins": [Settings.FRONTEND_ORIGIN,"https://tech-series2025-butter-frontend.vercel.app","https://tech-series2025-butter.vercel.app",]}})
 
     # Swagger
     Swagger(app)

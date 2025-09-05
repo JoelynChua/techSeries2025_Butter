@@ -5,6 +5,9 @@
 
     <!-- Login Card -->
     <div class="relative z-10 onboard-card">
+      <!-- Toasts -->
+      <notificationAlert ref="alerts" position="top" :max="4" />
+
       <div class="avatar-wrapper">
         <div class="avatar-container">
           <img src="../assets/mascot/Blank.png" alt="Jewey Mascot" class="avatar" />
@@ -39,11 +42,15 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import notificationAlert from '../components/notificationAlert.vue'
 
 const email = ref('')
 const password = ref('')
 const baseURL = import.meta.env.VITE_API_BASE || 'http://localhost:5000'
 const router = useRouter()
+
+// ref to the toast component so we can call .add()
+const alerts = ref(null)
 
 async function handleLogin() {
   try {
@@ -51,20 +58,37 @@ async function handleLogin() {
       email: email.value,
       password: password.value
     })
-    // console.log(resp.data)
-    // Check if the response contains a "user" object
+
     if (resp.data?.user) {
-      // Store userId in session storage
+      // Store userId in session storage (note: setItem returns undefined)
       sessionStorage.setItem('userId', resp.data.user.userId)
-      alert(`🎉 Login successful! Welcome, ${resp.data.user.email || 'User'}!`)
-      // Redirect to the dashboard or home page
-      router.push('/homePage') // Use router to navigate
-    } else if (resp.data?.error) {
-      alert("❌ Invalid email or password")
+
+      // Success toast
+      alerts.value?.add({
+        type: 'success',
+        title: 'Login successful',
+        message: `Welcome, ${resp.data.user.email || 'User'}!`,
+        timeout: 3000
+      })
+
+      // Navigate after a short beat so the toast is visible (optional)
+      setTimeout(() => router.push('/homePage'), 250)
+    } else {
+      const msg = resp.data?.error || 'Invalid email or password'
+      alerts.value?.add({
+        type: 'error',
+        title: 'Login failed',
+        message: msg,
+        timeout: 4000
+      })
     }
   } catch (err) {
-    // console.error("Login failed:", err)
-    alert("❌ Invalid email or password")
+    alerts.value?.add({
+      type: 'error',
+      title: 'Login failed',
+      message: 'Invalid email or password',
+      timeout: 4000
+    })
   }
 }
 </script>

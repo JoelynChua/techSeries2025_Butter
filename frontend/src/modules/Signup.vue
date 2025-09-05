@@ -5,6 +5,9 @@
 
     <!-- Sign Up Card -->
     <div class="relative z-10 onboard-card">
+      <!-- Toasts -->
+      <notificationAlert ref="alerts" position="top" :max="4" />
+
       <div class="avatar-wrapper">
         <div class="avatar-container">
           <img src="../assets/mascot/Blank.png" alt="Jewey Mascot" class="avatar" />
@@ -72,6 +75,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import notificationAlert from '../components/notificationAlert.vue'
 
 const name = ref('')
 const email = ref('')
@@ -81,6 +85,7 @@ const errors = ref({})
 
 const baseURL = import.meta.env.VITE_API_BASE || 'http://localhost:5000'
 const router = useRouter()
+const alerts = ref(null)
 
 function validateForm() {
   errors.value = {}
@@ -106,7 +111,7 @@ function validateForm() {
 }
 
 async function handleSignUp() {
-  if (!validateForm()) return // stop if validation fails
+  if (!validateForm()) return
 
   try {
     const signupResp = await axios.post(`${baseURL}/signup`, {
@@ -115,20 +120,39 @@ async function handleSignUp() {
       mobile: mobile.value,
       password: password.value,
     })
-    console.log(signupResp.data)
+
     if (signupResp.data?.user) {
-      alert("🎉 Sign-up successful! Please log in.")
-      router.push('/login')
+      alerts.value?.add({
+        type: 'success',
+        title: 'Sign-up successful',
+        message: '🎉 Please log in.',
+        timeout: 3000
+      })
+      setTimeout(() => router.push('/login'), 300)
     } else {
-      alert("❌ Sign-up failed. Please try again.")
+      alerts.value?.add({
+        type: 'error',
+        title: 'Sign-up failed',
+        message: '❌ Please try again.',
+        timeout: 3000
+      })
     }
   } catch (err) {
-    console.error("Sign-up failed:", err)
     if (err.response?.status === 409) {
-      alert("⚠️ This email is already registered. Please log in instead.")
-      router.push('/login')
+      alerts.value?.add({
+        type: 'warning',
+        title: 'Already registered',
+        message: '⚠️ This email is already registered. Please log in instead.',
+        timeout: 3000
+      })
+      setTimeout(() => router.push('/login'), 300)
     } else {
-      alert("⚠️ Something went wrong. Please try again.")
+      alerts.value?.add({
+        type: 'error',
+        title: 'Error',
+        message: '⚠️ Something went wrong. Please try again.',
+        timeout: 3000
+      })
     }
   }
 }
