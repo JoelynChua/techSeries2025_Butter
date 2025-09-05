@@ -7,7 +7,7 @@ import Profile from '../modules/profile.vue'
 const HomePage = () => import('../modules/homepage.vue')
 const CloseFriendPage = () => import('../modules/close-friends/pages/CloseFriendsPage.vue')
 const LoginPage = () => import('../modules/Login.vue')
-const SignUpPage = () => import('../modules/SignUp.vue')
+const SignUpPage = () => import('../modules/Signup.vue')
 
 const routes = [
   ...closeFriendsRoutes,
