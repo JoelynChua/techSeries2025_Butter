@@ -1,35 +1,10 @@
 from flask import Blueprint, request, jsonify
-from datetime import datetime
-from core.db import supabase, exec_data, MOOD_TABLE
+from datetime import datetime, timezone, timedelta
+from core.db import supabase, exec_data, MOOD_TABLE, USERS_TABLE
 import re
-
+import json  # local import for tips parsing
 bp = Blueprint("mood", __name__)
 
-# ---------- helpers ----------
-def as_bool(v):
-    if isinstance(v, bool):
-        return v
-    if v is None:
-        return None
-    return str(v).strip().lower() in ("1","true","t","yes","y","on")
-
-def as_float(v):
-    if v is None or v == "":
-        return None
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return None
-
-def as_int(v):
-    f = as_float(v)
-    return int(f) if f is not None else None
-
-def now_iso():
-    # Seconds precision; DB usually casts to timestamptz
-    return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-
-# ---------- endpoints ----------
 @bp.route("/moodMetric", methods=["GET"])
 def get_mood_metrics():
     """
@@ -354,8 +329,6 @@ def create_mood_metric():
             type: string
             example: "Missing userId"
     """
-    import json  # local import for tips parsing
-
     data = request.get_json(silent=True) or {}
     user_id = data.get("userId")
     if user_id is None:
@@ -385,61 +358,11 @@ def create_mood_metric():
     # ------- fetch matching band from public.scoreBands (no nested funcs) -------
     score_band = None
     if computed_score is not None:
-        cols = (
-            "band_key,label,min_score,max_score,inclusive_min,inclusive_max,message,crisis_note,display_order,tips"
-        )
-        try:
-            resp_bands = (
-                supabase.table("scoreBands")
-                .select(cols)
-                .order("display_order", desc=False)
-                .execute()
-            )
-            bands = exec_data(resp_bands) or []
-        except Exception as e:
-            print("scoreBands fetch error:", e)
-            bands = []
-
-        for r in bands:
-            lo = as_float(r.get("min_score"))
-            hi = as_float(r.get("max_score"))
-            if lo is None or hi is None:
-                continue
-            inc_lo = as_bool(r.get("inclusive_min"))
-            if inc_lo is None: inc_lo = True
-            inc_hi = as_bool(r.get("inclusive_max"))
-            if inc_hi is None: inc_hi = True
-
-            lo_ok = computed_score >= lo if inc_lo else computed_score > lo
-            hi_ok = computed_score <= hi if inc_hi else computed_score < hi
-            if lo_ok and hi_ok:
-                tips_raw = r.get("tips")
-                if isinstance(tips_raw, list):
-                    tips = tips_raw
-                elif isinstance(tips_raw, str) and tips_raw.strip():
-                    try:
-                        tips = json.loads(tips_raw)
-                    except Exception:
-                        tips = [tips_raw]
-                else:
-                    tips = []
-
-                score_band = {
-                    "band_key": r.get("band_key"),
-                    "label": r.get("label"),
-                    "min_score": lo,
-                    "max_score": hi,
-                    "inclusive_min": bool(inc_lo),
-                    "inclusive_max": bool(inc_hi),
-                    "message": r.get("message"),
-                    "crisis_note": r.get("crisis_note"),
-                    "display_order": as_int(r.get("display_order")),
-                    "tips": tips,
-                }
-                break
-    print("Matched score band:", score_band)
+        # Load bands once
+        bands = load_score_bands()
+        score_band = pick_score_band_for(computed_score, bands)
+        
     # ---------------------------------------------------------------------------
-
     payload = {
         "userId": raw_values["userId"],
         "sleepHours": raw_values["sleepHours"],
@@ -461,15 +384,29 @@ def create_mood_metric():
     try:
         resp = supabase.table(MOOD_TABLE).insert(payload).execute()
         created = exec_data(resp)
+
+        # --- update users.daily_quiz_at (timestamptz) ---
+        daily_quiz_at = datetime.now(timezone.utc).isoformat()  # e.g. 2025-09-06T12:34:56+00:00
+        try:
+            supabase.table(USERS_TABLE) \
+                .update({"daily_quiz_at": daily_quiz_at}) \
+                .eq("userId", raw_values["userId"]) \
+                .execute()
+        except Exception as ue:
+            # Non-fatal: keep the mood entry, just log the issue
+            print("Warning: failed to update users.daily_quiz_at:", ue)
+
         return jsonify({
             "message": "Created",
             "row": created[0] if created else None,
             "finalScore": computed_score,
-            "scoreBand": score_band
+            "scoreBand": score_band,
+            "daily_quiz_at": daily_quiz_at
         }), 201
     except Exception as e:
         print("Error creating mood metric:", e)
         return jsonify({"error": str(e)}), 500
+
 
 
 @bp.route("/moodMetric", methods=["PUT"])
@@ -544,9 +481,166 @@ def update_mood_metric():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@bp.route("/userDailyQuizResult", methods=["GET"])
+def userDailyQuizResult():
+    """
+    Get user daily quiz status by reading users.daily_quiz_at first, then fetching the corresponding moodMetric row.
+    Also includes whether there is a moodMetric entry for 'today' (Asia/Singapore) for this user.
+
+    Query:
+      - userId (required): integer
+
+    Response (200):
+      {
+        "userId": 42,
+        "daily_quiz_at": "2025-09-06T09:15:00+00:00",   # from USERS_TABLE
+        "row": {..., "scoreBand": {...}} or null,       # moodMetric row for that SGT day (if found)
+        "has_today": true/false,                        # whether there is an entry for today (SGT)
+        "today_row": {..., "scoreBand": {...}} or null  # today's moodMetric (if any)
+      }
+    """
+    try:
+        user_id = request.args.get("userId", type=int)
+        if user_id is None:
+            return jsonify({"error": "Missing userId"}), 400
+
+        # 1) Fetch user (daily_quiz_at first)
+        daily_quiz_at = None
+        try:
+            uresp = (
+                supabase.table(USERS_TABLE)
+                .select("userId,daily_quiz_at")
+                .eq("userId", user_id)
+                .limit(1)
+                .execute()
+            )
+            udata = exec_data(uresp) or []
+            if not udata:
+                return jsonify({"error": "User not found"}), 404
+            daily_quiz_at = (udata[0] or {}).get("daily_quiz_at")
+        except Exception as ue:
+            print("users.daily_quiz_at fetch error:", ue)
+            # keep daily_quiz_at=None, still proceed
+
+        # Load bands once
+        bands = load_score_bands()
+
+        # 2) Using (userId, daily_quiz_at) → fetch that SGT day's moodMetric
+        row_for_daily = None
+        if daily_quiz_at:
+            start_iso, end_iso = sg_day_bounds_from_ts(daily_quiz_at)
+            if start_iso and end_iso:
+                try:
+                    mresp = (
+                        supabase.table(MOOD_TABLE)
+                        .select("*")
+                        .eq("userId", user_id)
+                        .gte("created_timestamp", start_iso)
+                        .lt("created_timestamp", end_iso)
+                        .order("created_timestamp", desc=True)
+                        .limit(1)
+                        .execute()
+                    )
+                    mrows = exec_data(mresp) or []
+                    if mrows:
+                        row_for_daily = mrows[0]
+                        # attach scoreBand
+                        try:
+                            sc = float(row_for_daily.get("finalMoodScores")) if row_for_daily.get("finalMoodScores") is not None else None
+                        except (TypeError, ValueError):
+                            sc = None
+                        row_for_daily["scoreBand"] = pick_score_band_for(sc, bands)
+                except Exception as me:
+                    print("moodMetric (daily_quiz_at day) fetch error:", me)
+
+        
+        return jsonify({
+            "userId": user_id,
+            "daily_quiz_at": daily_quiz_at,
+            "row": row_for_daily,   # from users.daily_quiz_at day
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 # --- add near top of the file (helpers) --------------------------------------
+def _parse_tips(tips_raw):
+    if isinstance(tips_raw, list):
+        return tips_raw
+    if isinstance(tips_raw, str) and tips_raw.strip():
+        try:
+            return json.loads(tips_raw)
+        except Exception:
+            return [tips_raw]
+    return []
 
+def load_score_bands():
+    cols = (
+        "band_key,label,min_score,max_score,inclusive_min,inclusive_max,"
+        "message,crisis_note,display_order,tips"
+    )
+    try:
+        resp = supabase.table("scoreBands").select(cols).order("display_order", desc=False).execute()
+        return exec_data(resp) or []
+    except Exception as e:
+        print("scoreBands fetch error (GET):", e)
+        return []
+
+def pick_score_band_for(score, bands):
+    if score is None:
+        return None
+    for r in bands:
+        try:
+            lo = float(r.get("min_score")) if r.get("min_score") is not None else None
+            hi = float(r.get("max_score")) if r.get("max_score") is not None else None
+        except (TypeError, ValueError):
+            continue
+        if lo is None or hi is None:
+            continue
+        inc_lo = as_bool(r.get("inclusive_min"))
+        if inc_lo is None: inc_lo = True
+        inc_hi = as_bool(r.get("inclusive_max"))
+        if inc_hi is None: inc_hi = True
+
+        lo_ok = score >= lo if inc_lo else score > lo
+        hi_ok = score <= hi if inc_hi else score < hi
+        if lo_ok and hi_ok:
+            return {
+                "band_key": r.get("band_key"),
+                "label": r.get("label"),
+                "min_score": lo,
+                "max_score": hi,
+                "inclusive_min": bool(inc_lo),
+                "inclusive_max": bool(inc_hi),
+                "message": r.get("message"),
+                "crisis_note": r.get("crisis_note"),
+                "display_order": r.get("display_order"),
+                "tips": _parse_tips(r.get("tips")),
+            }
+    return None
+def parse_ts(iso):
+    if not iso:
+        return None
+    try:
+        return datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    except Exception:
+        return None
+    
+def sg_day_bounds_from_ts(iso_or_dt):
+    """Return (start_utc_iso, end_utc_iso) for the Asia/Singapore day that contains iso_or_dt."""
+    dt = parse_ts(iso_or_dt) if isinstance(iso_or_dt, str) else iso_or_dt
+    if dt is None:
+        return None, None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    sgt_tz = timezone(timedelta(hours=8))
+    dt_sgt = dt.astimezone(sgt_tz)
+    start_sgt = datetime(dt_sgt.year, dt_sgt.month, dt_sgt.day, tzinfo=sgt_tz)
+    end_sgt = start_sgt + timedelta(days=1)
+    start_utc = start_sgt.astimezone(timezone.utc)
+    end_utc = end_sgt.astimezone(timezone.utc)
+    return start_utc.isoformat(), end_utc.isoformat()
 
 def as_bool(v):
     if isinstance(v, bool): return v

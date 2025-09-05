@@ -100,3 +100,48 @@ def get_all_users():
         return jsonify({"rows": public_rows, "count": len(public_rows)}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@bp.route("/userDailyQuiz", methods=["GET"])
+def get_user_daily_quiz():
+    """
+    Get the last daily quiz datetime for a user
+    ---
+    tags:
+      - users
+    parameters:
+      - in: query
+        name: userId
+        required: true
+        type: integer
+        description: The user's id
+        example: 12345
+    responses:
+      200: {description: Datetime returned (ISO string or null)}
+      400: {description: Missing userId}
+      404: {description: User not found}
+      500: {description: Server error}
+    """
+    user_id = request.args.get("userId", type=int)
+    if user_id is None:
+        return jsonify({"error": "Missing userId"}), 400
+
+    try:
+        resp = (
+            supabase.table(USERS_TABLE)
+            .select("userId,daily_quiz_at")
+            .eq("userId", user_id)
+            .limit(1)
+            .execute()
+        )
+        data = exec_data(resp)
+        if not data:
+            return jsonify({"error": "User not found"}), 404
+
+        row = data[0] or {}
+        return jsonify({
+            "userId": row.get("userId"),
+            "daily_quiz_at": row.get("daily_quiz_at")  # e.g. "2025-09-06T03:15:27.123456+00:00" or null
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

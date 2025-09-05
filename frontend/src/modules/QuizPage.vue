@@ -15,6 +15,20 @@
         Daily Quiz
       </h2>
 
+      <!-- Daily quiz status (hide once a final score exists / results shown) -->
+      <div v-if="!showResults && (finalScore === null || finalScore === undefined)" class="mb-3">
+        <div v-if="hasDoneToday" class="rounded-lg border p-3 bg-green-50 text-green-800 text-sm text-center">
+          ✅ You’ve already done your quiz today.
+        </div>
+        <div v-else-if="lastDailyQuizAt" class="rounded-lg border p-3 bg-amber-50 text-amber-800 text-sm text-center">
+          Last done: {{ formatLocalDT(lastDailyQuizAt) }} — let’s do today’s!
+        </div>
+        <div v-else class="rounded-lg border p-3 bg-blue-50 text-blue-800 text-sm text-center">
+          First check-in — let’s go!
+        </div>
+      </div>
+
+
       <div class="h-[250px] flex flex-col justify-between">
         <div v-if="isLoading" class="flex items-center justify-center h-full pt-16">
           <p class="text-xl text-slate-600">Loading Quiz...</p>
@@ -79,35 +93,35 @@
         <!-- Results -->
         <div v-if="showResults" class="text-center">
           <h3 class="text-2xl font-bold text-slate-800 mb-2">Today's Score</h3>
-<p class="text-3xl font-extrabold text-slate-900">{{ Number(finalScore).toFixed(1) }}</p>
-<p v-if="scoreBand?.label" class="text-3xl font-extrabold text-slate-900">
-  {{ scoreBand.label }}
-</p>
+          <p class="text-3xl font-extrabold text-slate-900">{{ Number(finalScore).toFixed(1) }}</p>
+          <p v-if="scoreBand?.label" class="text-3xl font-extrabold text-slate-900">
+            {{ scoreBand.label }}
+          </p>
           <p class="mt-1 text-slate-600 text-lg">out of 10</p>
 
           <!-- Band details -->
-<div v-if="scoreBand" class="mt-6 text-left mx-auto max-w-md rounded-xl p-4 border text-sm">
-  <div class="flex items-center justify-between mb-1">
-    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-white">
-      {{ scoreBand.label }}
-    </span>
-    <span class="text-xs">
-      {{ Number(scoreBand.min_score).toFixed(1) }}–{{ Number(scoreBand.max_score).toFixed(1) }}
-    </span>
-  </div>
+          <div v-if="scoreBand" class="mt-6 text-left mx-auto max-w-md rounded-xl p-4 border text-sm">
+            <div class="flex items-center justify-between mb-1">
+              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-white">
+                {{ scoreBand.label }}
+              </span>
+              <span class="text-xs">
+                {{ Number(scoreBand.min_score).toFixed(1) }}–{{ Number(scoreBand.max_score).toFixed(1) }}
+              </span>
+            </div>
 
-  <p class="text-slate-800 mb-2">
-    {{ scoreBand.message }}
-  </p>
+            <p class="text-slate-800 mb-2">
+              {{ scoreBand.message }}
+            </p>
 
-  <ul class="list-disc pl-5 space-y-1 text-slate-700 text-xs">
-    <li v-for="tip in bandTips" :key="tip">{{ tip }}</li>
-  </ul>
+            <ul class="list-disc pl-5 space-y-1 text-slate-700 text-xs">
+              <li v-for="tip in bandTips" :key="tip">{{ tip }}</li>
+            </ul>
 
-  <p v-if="scoreBand.crisis_note" class="mt-3 text-xs font-medium">
-    {{ scoreBand.crisis_note }}
-  </p>
-</div>
+            <p v-if="scoreBand.crisis_note" class="mt-3 text-xs font-medium">
+              {{ scoreBand.crisis_note }}
+            </p>
+          </div>
 
 
         </div>
@@ -144,7 +158,8 @@ export default {
       showResults: false,
       answers: {},
       finalScore: null,
-      scoreBand: null,
+      scoreBand: null, lastDailyQuizAt: null,
+      hasDoneToday: false,
     };
   },
   computed: {
@@ -176,6 +191,64 @@ export default {
     },
   },
   methods: {
+    async fetchTodayResult() {
+  try {
+    const { data } = await axios.get(`${baseURL}/userDailyQuizResult`, { params: { userId: 1 } });
+    // backend shape: { userId, daily_quiz_at, row }
+    const row = data?.row || null;
+
+    // keep the latest daily_quiz_at around for UI if needed
+    this.lastDailyQuizAt = data?.daily_quiz_at ?? this.lastDailyQuizAt;
+
+    if (!row) {
+      this.finalScore = null;
+      this.scoreBand = null;
+      return false; // no result for today
+    }
+
+    this.finalScore = row?.finalMoodScores ?? null;
+    this.scoreBand  = row?.scoreBand ?? null; // backend already attaches band
+    this.isLoading = false;
+    return true; // we have a result for today
+  } catch (e) {
+    console.warn("Failed to fetch today's result:", e);
+    this.finalScore = null;
+    this.scoreBand = null;
+    this.isLoading = false;
+    return false;
+  }
+}
+,
+    async fetchDailyQuizStatus() {
+      try {
+        const res = await axios.get(`${baseURL}/userDailyQuiz`, { params: { userId: 1 } });
+        const iso = res?.data?.daily_quiz_at || null;
+        this.lastDailyQuizAt = iso;
+        this.hasDoneToday = iso ? this.isSameLocalDay(new Date(iso), new Date()) : false;
+      } catch (e) {
+        console.warn("Failed to fetch daily quiz status:", e);
+        this.lastDailyQuizAt = null;
+        this.hasDoneToday = false;
+      }
+    },
+    // Compare Y/M/D in local time (client timezone)
+    isSameLocalDay(a, b) {
+      return a.getFullYear() === b.getFullYear() &&
+        a.getMonth() === b.getMonth() &&
+        a.getDate() === b.getDate();
+    },
+    // Format datetime in Asia/Singapore (adjust if you prefer device tz)
+    formatLocalDT(iso) {
+      try {
+        return new Intl.DateTimeFormat(undefined, {
+          dateStyle: "medium",
+          timeStyle: "short",
+          timeZone: "Asia/Singapore",
+        }).format(new Date(iso));
+      } catch {
+        return new Date(iso).toLocaleString();
+      }
+    },
     async fetchQuizConfig() {
       this.isLoading = true;
       try {
@@ -303,7 +376,7 @@ export default {
         const payload = this.buildSubmissionPayload();
         const resp = await axios.post(`${baseURL}/moodMetric`, payload);
         this.finalScore = resp?.data?.finalScore ?? resp?.data?.row?.finalMoodScores ?? null;
-        this.scoreBand = resp?.data?.scoreBand ?? null;   
+        this.scoreBand = resp?.data?.scoreBand ?? null;
         this.showResults = true;
         console.log("Quiz submitted successfully:", resp.data);
       } catch (error) {
@@ -323,9 +396,21 @@ export default {
     },
   },
 
-  async mounted() {
-    await this.fetchQuizConfig();
-  },
+async mounted() {
+  await this.fetchDailyQuizStatus();
+
+  if (this.hasDoneToday) {
+    const gotToday = await this.fetchTodayResult();
+    if (gotToday) {
+      this.showResults = true;   // show results page only
+      return;                    // do not load questions
+    }
+  }
+
+  // No result found for today -> load questions
+  await this.fetchQuizConfig();
+}
+
 };
 </script>
 
