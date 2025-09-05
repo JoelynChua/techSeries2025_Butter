@@ -94,12 +94,12 @@ function friendRowsToUi(rows) {
 }
 
 function candidateFriendUrls() {
-  const urls = [`${API_BASE}/friends`]
+  const urls = []
   if (OWNER_UID) {
     urls.push(
-      `${API_BASE}/friends?userId=${encodeURIComponent(OWNER_UID)}`,
-      `${API_BASE}/friends?ownerUid=${encodeURIComponent(OWNER_UID)}`,
-      `${API_BASE}/friends?ownerId=${encodeURIComponent(OWNER_UID)}`,
+      // `${API_BASE}/friends?userId=${encodeURIComponent(OWNER_UID)}`,
+      // `${API_BASE}/friends?ownerUid=${encodeURIComponent(OWNER_UID)}`,
+      // `${API_BASE}/friends?ownerId=${encodeURIComponent(OWNER_UID)}`,
       `${API_BASE}/friends?friendofuid=${encodeURIComponent(OWNER_UID)}`
     )
   }
@@ -108,6 +108,7 @@ function candidateFriendUrls() {
 
 async function robustFetchFriends() {
   const urls = candidateFriendUrls()
+  // console.log('Fetching friends from candidate URLs:', urls)
   let lastError = ''
   for (const url of urls) {
     try {
