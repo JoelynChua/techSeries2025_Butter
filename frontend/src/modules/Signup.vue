@@ -19,42 +19,18 @@
 
       <form @submit.prevent="handleSignUp" class="signup-form">
         <div class="form-group">
-          <input
-            v-model="username"
-            type="text"
-            placeholder="Username"
-            required
-            class="form-input"
-          />
+          <input v-model="username" type="text" placeholder="Username" required class="form-input" />
         </div>
         <div class="form-group">
-          <input
-            v-model="email"
-            type="email"
-            placeholder="Email"
-            required
-            class="form-input"
-          />
+          <input v-model="email" type="email" placeholder="Email" required class="form-input" />
           <p v-if="errors.email" class="error">{{ errors.email }}</p>
         </div>
         <div class="form-group">
-          <input
-            v-model="mobile"
-            type="tel"
-            placeholder="Mobile Number"
-            required
-            class="form-input"
-          />
+          <input v-model="mobile" type="tel" placeholder="Mobile Number" required class="form-input" />
           <p v-if="errors.mobile" class="error">{{ errors.mobile }}</p>
         </div>
         <div class="form-group">
-          <input
-            v-model="password"
-            type="password"
-            placeholder="Password"
-            required
-            class="form-input"
-          />
+          <input v-model="password" type="password" placeholder="Password" required class="form-input" />
           <p v-if="errors.password" class="error">{{ errors.password }}</p>
         </div>
 
@@ -139,13 +115,37 @@ async function handleSignUp() {
     }
   } catch (err) {
     if (err.response?.status === 409) {
+      // Get the error message from the backend
+      const errorMessage = err.response?.data?.error || 'User already exists'
+
+      // Determine the title and message based on the error
+      let title = 'Already registered'
+      let message = '⚠️ Please try again with different information.'
+
+      if (errorMessage.toLowerCase().includes('email')) {
+        title = 'Email already exists'
+        message = '⚠️ This email is already registered. Please log in instead.'
+        setTimeout(() => router.push('/login'), 300)
+      } else if (errorMessage.toLowerCase().includes('mobile')) {
+        title = 'Mobile number already exists'
+        message = '⚠️ This mobile number is already registered. Please use a different number.'
+      }
+
       alerts.value?.add({
         type: 'warning',
-        title: 'Already registered',
-        message: '⚠️ This email is already registered. Please log in instead.',
+        title: title,
+        message: message,
+        timeout: 4000
+      })
+    } else if (err.response?.status === 400) {
+      // Handle validation errors from backend
+      const errorMessage = err.response?.data?.error || 'Invalid input'
+      alerts.value?.add({
+        type: 'error',
+        title: 'Invalid input',
+        message: `❌ ${errorMessage}`,
         timeout: 3000
       })
-      setTimeout(() => router.push('/login'), 300)
     } else {
       alerts.value?.add({
         type: 'error',
