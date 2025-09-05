@@ -1,6 +1,14 @@
 <template>
-  <div class="fixed inset-0 bg-sky-900/40 backdrop-blur-sm flex items-center justify-center z-50">
-    <div class="relative w-full max-w-md overflow-hidden rounded-[28px] p-6 ring-1 ring-sky-100 shadow-[0_18px_48px_-22px_rgba(24,39,75,0.35)] bg-gradient-to-b from-sky-50 to-sky-100">
+  <!-- Overlay covers ONLY the phone frame (parent must be relative) -->
+  <div
+    class="absolute inset-0 z-[60] flex items-center justify-center bg-sky-900/40 backdrop-blur-sm"
+    @click.self="$emit('close')"
+    role="dialog"
+    aria-modal="true"
+  >
+    <div
+      class="relative w-[92vw] max-w-md overflow-hidden rounded-[28px] p-6 ring-1 ring-sky-100 shadow-[0_18px_48px_-22px_rgba(24,39,75,0.35)] bg-gradient-to-b from-sky-50 to-sky-100 pointer-events-auto"
+    >
       <div aria-hidden="true" class="pointer-events-none absolute inset-0 opacity-20 mix-blend-soft-light"
            style="background-image:radial-gradient(white 16%,transparent 17%),radial-gradient(white 16%,transparent 17%);background-position:0 0,14px 14px;background-size:28px 28px;"></div>
 
@@ -9,7 +17,7 @@
         <button @click="$emit('close')" class="text-slate-400 hover:text-slate-700 transition" aria-label="Close">✕</button>
       </div>
 
-      <form @submit.prevent="onSubmit" class="relative space-y-4">
+      <form @submit.prevent="onSubmit" class="relative space-y-4" novalidate>
         <!-- Username autocomplete -->
         <div class="relative">
           <label class="block text-sm font-semibold text-slate-700 mb-1">Username</label>
@@ -18,7 +26,7 @@
               v-model.trim="search"
               type="text"
               :placeholder="loadingUsers ? 'Loading users…' : 'Type a username…'"
-              :disabled="loadingUsers"
+              :disabled="loadingUsers || saving"
               @focus="openList()"
               @blur="deferCloseList"
               @keydown.down.prevent="move(1)"
@@ -27,40 +35,41 @@
               @keydown.esc.prevent="closeList()"
               class="w-full rounded-xl border border-sky-200 px-3 py-2 pr-9 shadow-sm focus:ring-2 focus:ring-sky-400 focus:outline-none bg-white/90"
               autocomplete="off"
+              aria-autocomplete="list"
+              :aria-expanded="listOpen ? 'true' : 'false'"
+              aria-controls="user-autocomplete-list"
             />
             <span v-if="loadingUsers" class="absolute right-3 top-2.5 text-slate-400 animate-pulse">…</span>
 
             <ul
               v-show="listOpen && filtered.length"
-              class="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-sky-200 bg-white shadow-lg"
+              id="user-autocomplete-list"
+              class="absolute z-30 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-sky-200 bg-white shadow-lg"
               @mousedown.prevent
               role="listbox"
             >
               <li
                 v-for="(u, i) in filtered"
                 :key="u.id"
-                @click="addedSet.has(u.id) ? null : selectUser(u)"
+                @click="addedEmailSet.has(u._emailLc) ? null : selectUser(u)"
                 :class="[
                   'px-3 py-2 cursor-pointer text-sm flex items-center justify-between',
                   i === highlighted ? 'bg-sky-100' : 'hover:bg-sky-50',
-                  addedSet.has(u.id) ? 'opacity-60 cursor-not-allowed' : ''
+                  addedEmailSet.has(u._emailLc) ? 'opacity-60 cursor-not-allowed' : ''
                 ]"
                 role="option"
                 :aria-selected="i === highlighted"
               >
                 <span class="truncate">@{{ u.username }}</span>
-                <!-- Optional badge if you prefer to show that a user is already added; disabled by default -->
                 <span
-                  v-if="addedSet.has(u.id) && SHOW_ADDED_IN_LIST"
+                  v-if="addedEmailSet.has(u._emailLc) && SHOW_ADDED_IN_LIST"
                   class="ml-3 text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 ring-1 ring-slate-200"
-                >
-                  Added
-                </span>
+                >Added</span>
               </li>
             </ul>
 
             <div v-show="listOpen && !filtered.length && !loadingUsers"
-                 class="absolute z-20 mt-1 w-full rounded-xl border border-sky-200 bg-white shadow-lg px-3 py-2 text-sm text-slate-500">
+                 class="absolute z-30 mt-1 w-full rounded-xl border border-sky-200 bg-white shadow-lg px-3 py-2 text-sm text-slate-500">
               No users found.
             </div>
           </div>
@@ -68,14 +77,14 @@
           <p v-if="form.username" class="mt-1 text-xs text-slate-500">
             Selected: <span class="font-medium">@{{ form.username }}</span>
           </p>
-          <!-- Intentionally not displaying email anywhere in the UI -->
         </div>
 
-        <!-- Relationship selector -->
+        <!-- Relationship -->
         <div>
           <label class="block text-sm font-semibold text-slate-700 mb-1">Relationship</label>
           <select
             v-model="selectedRelationship"
+            :disabled="saving"
             class="w-full rounded-xl border border-sky-200 px-3 py-2 shadow-sm focus:ring-2 focus:ring-sky-400 focus:outline-none bg-white/90"
           >
             <option value="" disabled>Select a relationship…</option>
@@ -86,6 +95,7 @@
           <div v-if="selectedRelationship === 'Other…'" class="mt-2">
             <input
               v-model.trim="customRelationship"
+              :disabled="saving"
               type="text"
               placeholder="Type a custom relationship (e.g., Project Advisor)"
               class="w-full rounded-xl border border-sky-200 px-3 py-2 shadow-sm focus:ring-2 focus:ring-sky-400 focus:outline-none"
@@ -101,6 +111,7 @@
           <label class="block text-sm font-semibold text-slate-700 mb-1">Tags</label>
           <input
             v-model="tagsInput"
+            :disabled="saving"
             type="text"
             placeholder="Comma-separated (e.g., Family, Buddy)"
             @keydown.enter.prevent="addTags"
@@ -113,30 +124,38 @@
               class="text-xs bg-sky-100 text-sky-800 px-2 py-1 rounded-full flex items-center gap-1 ring-1 ring-sky-200"
             >
               #{{ tag }}
-              <button type="button" @click="removeTag(idx)" class="text-slate-400 hover:text-rose-500" aria-label="Remove tag">✕</button>
+              <button type="button" :disabled="saving" @click="removeTag(idx)" class="text-slate-400 hover:text-rose-500" aria-label="Remove tag">✕</button>
             </span>
           </div>
         </div>
 
         <!-- Emergency contact -->
         <div class="flex items-center gap-2">
-          <input v-model="form.emergencycontact" type="checkbox" id="emergency" class="w-4 h-4 text-rose-500 rounded focus:ring-rose-400" />
+          <input v-model="form.emergencycontact" :disabled="saving" type="checkbox" id="emergency" class="w-4 h-4 text-rose-500 rounded focus:ring-rose-400" />
           <label for="emergency" class="text-sm text-slate-700">Mark as Emergency Contact</label>
         </div>
 
+        <!-- Inline notifications -->
+        <div class="space-y-2">
+          <p v-if="formError" class="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">{{ formError }}</p>
+          <p v-if="serverError" class="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">{{ serverError }}</p>
+          <p v-if="successMsg" class="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">{{ successMsg }}</p>
+        </div>
+
         <!-- Actions -->
-        <div class="flex justify-end gap-2 pt-4">
-          <button type="button" @click="$emit('close')" class="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-sm">
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" :disabled="saving" @click="$emit('close')" class="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-sm">
             Cancel
           </button>
           <button
             type="submit"
-            :disabled="!form.friendofuid"
+            :disabled="!form.friendofuid || saving"
             class="px-4 py-2 rounded-xl text-white font-semibold shadow-md transition hover:shadow-lg active:translate-y-[1px]
                    bg-[linear-gradient(180deg,#5EC4FF_0%,#3DA8FF_100%)]
                    disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {{ mode === 'edit' ? 'Save Changes' : 'Add Friend' }}
+            <span v-if="!saving">{{ mode === 'edit' ? 'Save Changes' : 'Add Friend' }}</span>
+            <span v-else>Saving…</span>
           </button>
         </div>
       </form>
@@ -153,11 +172,11 @@ import { reactive, ref, watch, computed, onMounted } from 'vue'
 const props = defineProps({
   mode: { type: String, default: 'add' },
   friend: { type: Object, default: null },
-  // Pass the IDs of users already added to your friend list
-  alreadyAddedIds: { type: Array, default: () => [] }
+  alreadyAddedEmails: { type: Array, default: () => [] },
+  onSave: { type: Function, default: null }
 })
 
-const emit = defineEmits(['save','close'])
+const emit = defineEmits(['saved','close'])
 
 const form = reactive({
   friendofuid: '',
@@ -165,16 +184,14 @@ const form = reactive({
   relationship: '',
   tags: [],
   emergencycontact: false,
-  email: '',      // captured for backend only; never shown
-  phone: ''       // captured silently if needed
+  email: '',
+  phone: ''
 })
 
-// Toggle if you want to show a disabled "Added" badge in the list
 const SHOW_ADDED_IN_LIST = false
-
 const tagsInput = ref('')
 
-const userProfiles = ref([])   // [{id, username, email, phone}]
+const userProfiles = ref([])
 const loadingUsers = ref(false)
 const usersError = ref('')
 
@@ -182,6 +199,11 @@ const search = ref('')
 const listOpen = ref(false)
 const highlighted = ref(-1)
 let blurTimer = null
+
+const formError   = ref('')
+const serverError = ref('')
+const successMsg  = ref('')
+const saving      = ref(false)
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/,'')
 const USERS_URL = `${API_BASE}/users`
@@ -193,7 +215,8 @@ function normalizeUsers(data) {
     const username = String(r?.username ?? r?.name ?? '')
     const email = r?.email ?? ''
     const phone = r?.mobile ?? r?.phone ?? ''
-    return id == null || !username ? null : { id: String(id), username, email, phone }
+    const _emailLc = (email || '').toLowerCase()
+    return id == null || !username ? null : { id: String(id), username, email, phone, _emailLc }
   }).filter(Boolean)
 }
 
@@ -214,49 +237,32 @@ async function fetchProfiles () {
 }
 onMounted(fetchProfiles)
 
-// Fast lookup for “already added”
-const addedSet = computed(() => new Set((props.alreadyAddedIds || []).map(String)))
+const addedEmailSet = computed(() => new Set((props.alreadyAddedEmails || []).map(e => String(e).toLowerCase())))
 
-// Filter by username only (we do not surface email/phone in UI)
 const baseFiltered = computed(() => {
   const q = search.value.trim().toLowerCase()
   const base = userProfiles.value
   if (!q) return base.slice(0, 50)
   return base.filter(u => u.username.toLowerCase().includes(q)).slice(0, 50)
 })
-
-// Final filtered list: hide already-added unless SHOW_ADDED_IN_LIST = true
-const filtered = computed(() => {
-  if (SHOW_ADDED_IN_LIST) return baseFiltered.value
-  return baseFiltered.value.filter(u => !addedSet.value.has(u.id))
-})
+const filtered = computed(() => SHOW_ADDED_IN_LIST ? baseFiltered.value : baseFiltered.value.filter(u => !addedEmailSet.value.has(u._emailLc)))
 
 function openList() { listOpen.value = true }
 function closeList() { listOpen.value = false; highlighted.value = -1 }
-function deferCloseList() {
-  blurTimer && clearTimeout(blurTimer)
-  blurTimer = setTimeout(() => { closeList() }, 120)
-}
-function move(dir) {
-  if (!listOpen.value) listOpen.value = true
-  const n = filtered.value.length
-  if (!n) return
-  highlighted.value = (highlighted.value + dir + n) % n
-}
-function chooseHighlighted() {
-  if (highlighted.value < 0 || highlighted.value >= filtered.value.length) return
-  const u = filtered.value[highlighted.value]
-  if (addedSet.value.has(u.id)) return // safety if SHOW_ADDED_IN_LIST = true
-  selectUser(u)
-}
+function deferCloseList() { blurTimer && clearTimeout(blurTimer); blurTimer = setTimeout(() => { closeList() }, 120) }
+function move(dir) { if (!listOpen.value) listOpen.value = true; const n = filtered.value.length; if (!n) return; highlighted.value = (highlighted.value + dir + n) % n }
+function chooseHighlighted() { if (highlighted.value < 0 || highlighted.value >= filtered.value.length) return; const u = filtered.value[highlighted.value]; if (addedEmailSet.value.has(u._emailLc)) return; selectUser(u) }
+
 function selectUser(u) {
-  if (addedSet.value.has(u.id)) return // disable selection for added users
-  form.friendofuid = u.id
+  if (addedEmailSet.value.has(u._emailLc)) return
+  const ownerId = (localStorage.getItem('ownerUid') || localStorage.getItem('userId') || import.meta.env.VITE_OWNER_UID || 4)
+  form.friendofuid = Number(ownerId)
   form.username    = u.username
-  form.email       = u.email || ''   // captured for backend; not displayed
+  form.email       = u.email || ''
   form.phone       = u.phone || ''
   search.value     = u.username
   closeList()
+  if (formError.value) formError.value = ''
 }
 
 function addTags() {
@@ -266,45 +272,43 @@ function addTags() {
 }
 function removeTag(i) { form.tags.splice(i, 1) }
 
-function onSubmit() {
-  if (!form.friendofuid) { alert('Please select a user from the list.'); return }
-  // If your backend requires email, keep this check (silent in UI)
-  if (!form.email) { alert('Selected user has no email; cannot add friend.'); return }
-  emit('save', { ...form })
+async function onSubmit() {
+  formError.value = ''
+  serverError.value = ''
+  successMsg.value = ''
+
+  if (!form.friendofuid) { formError.value = 'Please select a user from the list.'; return }
+  if (!form.email) { formError.value = 'Selected user has no email; cannot add friend.'; return }
+
+  const payload = { ...form }
+
+  try {
+    saving.value = true
+    if (typeof props.onSave === 'function') {
+      await props.onSave(payload)
+    } else {
+      throw new Error('onSave handler not provided')
+    }
+    successMsg.value = props.mode === 'edit' ? 'Friend updated successfully.' : 'Friend added successfully.'
+    setTimeout(() => { emit('saved') }, 600)
+  } catch (e) {
+    serverError.value = e?.message ? `Failed to save: ${e.message}` : 'Failed to save. Please try again.'
+  } finally {
+    saving.value = false
+  }
 }
 
-// Preset options shown in the dropdown
-const REL_OPTIONS = [
-  'Friend',
-  'Best Friend',
-  'Classmate',
-  'Sibling',
-  'Parent',
-  'Partner',
-]
+const REL_OPTIONS = ['Friend','Best Friend','Classmate','Sibling','Parent','Partner']
+const selectedRelationship = ref('')
+const customRelationship   = ref('')
 
-const selectedRelationship = ref('')    // current value in <select>
-const customRelationship   = ref('')    // free-text when 'Other…' is chosen
+watch(selectedRelationship, (val) => { form.relationship = val === 'Other…' ? customRelationship.value.trim() : val })
+watch(customRelationship, (val) => { if (selectedRelationship.value === 'Other…') form.relationship = val.trim() })
 
-// Keep form.relationship in sync with the UI
-watch(selectedRelationship, (val) => {
-  if (val === 'Other…') {
-    form.relationship = customRelationship.value.trim()
-  } else {
-    form.relationship = val
-  }
-})
-watch(customRelationship, (val) => {
-  if (selectedRelationship.value === 'Other…') {
-    form.relationship = val.trim()
-  }
-})
-
-// Prefill edit mode sensibly
 watch(() => props.friend, (val) => {
   if (val && props.mode === 'edit') {
     Object.assign(form, {
-      friendofuid: String(val.friendofuid ?? ''),
+      friendofuid: Number(val.friendofuid ?? (localStorage.getItem('ownerUid') || localStorage.getItem('userId') || import.meta.env.VITE_OWNER_UID || 0)),
       username: val.username || '',
       relationship: val.relationship || '',
       tags: Array.isArray(val.tags) ? val.tags : [],
@@ -312,7 +316,6 @@ watch(() => props.friend, (val) => {
       email: val.email || '',
       phone: val.phone || ''
     })
-    // If existing relationship matches a preset, select it; else use Other…
     const match = REL_OPTIONS.includes(form.relationship) ? form.relationship : 'Other…'
     selectedRelationship.value = match
     if (match === 'Other…') customRelationship.value = form.relationship
