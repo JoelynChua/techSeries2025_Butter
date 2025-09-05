@@ -16,8 +16,8 @@ def create_app():
     # Basic config
     app.config["SWAGGER"] = Settings.SWAGGER
 
-    # CORS
-    CORS(app, resources={r"/*": {"origins": [Settings.FRONTEND_ORIGIN]}})
+    # CORS - Updated for Vercel deployment
+    CORS(app, resources={r"/*": {"origins": [Settings.FRONTEND_ORIGIN, "https://*.vercel.app"]}})
 
     # Swagger
     Swagger(app)
@@ -31,9 +31,11 @@ def create_app():
 
     return app
 
+# Create the app instance for Vercel
+app = create_app()
 
+# For local development
 if __name__ == "__main__":
-    app = create_app()
     port = int(os.getenv("PORT", "5000"))
     debug = os.getenv("FLASK_DEBUG", "true").lower() == "true"
     app.run(host="0.0.0.0", port=port, debug=debug)
