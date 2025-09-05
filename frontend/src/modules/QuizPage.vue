@@ -10,12 +10,12 @@
       "></div>
 
     <div
-      class="relative h-[600px] w-full max-w-xl overflow-hidden rounded-[28px] p-6 ring-1 ring-sky-100 shadow-[0_18px_48px_-22px_rgba(24,39,75,0.35)] bg-gradient-to-b from-sky-50 to-sky-100 text-xl">
+      class="relative h-[450px] w-full max-w-xl overflow-hidden rounded-[28px] p-6 ring-1 ring-sky-100 shadow-[0_18px_48px_-22px_rgba(24,39,75,0.35)] bg-gradient-to-b from-sky-50 to-sky-100 text-xl">
       <h2 class="text-2xl font-bold text-slate-800 mb-2 text-center">
         Daily Quiz
       </h2>
 
-      <div class="h-[390px] flex flex-col justify-between">
+      <div class="h-[250px] flex flex-col justify-between">
         <div v-if="isLoading" class="flex items-center justify-center h-full pt-16">
           <p class="text-xl text-slate-600">Loading Quiz...</p>
         </div>
@@ -35,6 +35,12 @@
                   currentQuestion.config.max,
                   $refs.slider
                 ),
+                transform: answers[currentQuestion.field_name] === currentQuestion.config.min
+                  ? 'translateX(0)'
+                  : answers[currentQuestion.field_name] === currentQuestion.config.max
+                    ? 'translateX(-100%)'
+                    : 'translateX(-50%)'
+
               }">
                 {{ answers[currentQuestion.field_name] }} <span v-if="currentQuestion.unit">{{ currentQuestion.unit
                 }}</span>
