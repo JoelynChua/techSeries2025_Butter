@@ -62,7 +62,7 @@ Check-ins and wellbeing tracking allow users to monitor trends before crises occ
 - **Alert System:** Threshold detection triggers notifications to friends or SOS channels.  
 - **Data Storage:** Supabase backend stores mood, health metrics, and social connections securely.  
 
-*(Diagrams can be added here if needed.)*
+![Solution Architecture](./assets/architecture.png)
 
 ---
 
