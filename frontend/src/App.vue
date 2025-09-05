@@ -121,8 +121,8 @@ const toggleAudio = async () => {
 .phone-content {
   flex: 1;
   overflow-y: auto;
-  padding-bottom: 60px; /* give space above navbar */
-
+  /* padding-bottom: 60px; give space above navbar */
+  max-height: 540px;
   /* Hide scrollbar but keep scrolling */
   scrollbar-width: none;        /* Firefox */
   -ms-overflow-style: none;     /* IE & Edge */
