@@ -114,6 +114,7 @@ const toggleAudio = async () => {
   overflow: hidden;
   background: #fff;
   position: relative;
+  isolation: isolate; 
 }
 
 /* Scrollable area above the nav */
@@ -152,7 +153,7 @@ const toggleAudio = async () => {
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
   cursor: pointer;
-  z-index: 10;
+  z-index: 9999;
   transition: transform 0.15s ease, background 0.2s ease;
 }
 .audio-toggle:hover { transform: scale(1.05); background: rgba(0,0,0,0.65); }

@@ -22,13 +22,7 @@
         let’s get it started!
       </p>
 
-      <div class="dots" aria-label="Onboarding progress">
-        <span class="dot active" aria-current="step"></span>
-        <span class="dot"></span>
-        <span class="dot"></span>
-        <span class="dot"></span>
-        <span class="dot"></span>
-      </div>
+
     </div>
   </main>
 </template>
@@ -174,24 +168,6 @@ async function randomiseFeeling() {
   margin: 14px auto 22px;
   max-width: 290px;
   color: rgba(255, 255, 255, 0.95);
-}
-
-.dots {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-}
-
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.5);
-}
-
-.dot.active {
-  background: #ffffff;
-  transform: scale(1.05);
 }
 
 @media (min-width: 420px) {
