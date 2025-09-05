@@ -10,7 +10,7 @@
       "></div>
 
     <div
-      class="relative h-[450px] w-full max-w-xl overflow-hidden rounded-[28px] p-6 ring-1 ring-sky-100 shadow-[0_18px_48px_-22px_rgba(24,39,75,0.35)] bg-gradient-to-b from-sky-50 to-sky-100 text-xl">
+      class="relative h-[550px] w-full max-w-xl overflow-hidden rounded-[28px] p-6 ring-1 ring-sky-100 shadow-[0_18px_48px_-22px_rgba(24,39,75,0.35)] bg-gradient-to-b from-sky-50 to-sky-100 text-xl">
       <h2 class="text-2xl font-bold text-slate-800 mb-2 text-center">
         Daily Quiz
       </h2>
@@ -79,8 +79,8 @@
         <!-- Results -->
         <div v-if="showResults" class="text-center">
           <h3 class="text-2xl font-bold text-slate-800 mb-2">Today's Score</h3>
-<p class="text-5xl font-extrabold text-slate-900">{{ Number(finalScore).toFixed(1) }}</p>
-<p v-if="scoreBand?.label" class="text-5xl font-extrabold text-slate-900">
+<p class="text-3xl font-extrabold text-slate-900">{{ Number(finalScore).toFixed(1) }}</p>
+<p v-if="scoreBand?.label" class="text-3xl font-extrabold text-slate-900">
   {{ scoreBand.label }}
 </p>
           <p class="mt-1 text-slate-600 text-lg">out of 10</p>
