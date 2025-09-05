@@ -35,9 +35,15 @@
                   currentQuestion.config.max,
                   $refs.slider
                 ),
+                transform: answers[currentQuestion.field_name] === currentQuestion.config.min
+                  ? 'translateX(0)'
+                  : answers[currentQuestion.field_name] === currentQuestion.config.max
+                    ? 'translateX(-100%)'
+                    : 'translateX(-50%)'
+
               }">
                 {{ answers[currentQuestion.field_name] }} <span v-if="currentQuestion.unit">{{ currentQuestion.unit
-                  }}</span>
+                }}</span>
               </div>
               <input ref="slider" type="range" :min="currentQuestion.config.min" :max="currentQuestion.config.max"
                 :step="currentQuestion.config.step" v-model.number="answers[currentQuestion.field_name]"
@@ -49,7 +55,7 @@
             </div>
             <p class="text-xl font-bold mt-4 text-center">
               {{ answers[currentQuestion.field_name] }} <span v-if="currentQuestion.unit">{{ currentQuestion.unit
-                }}</span>
+              }}</span>
             </p>
           </div>
 
