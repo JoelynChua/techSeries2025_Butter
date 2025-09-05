@@ -10,7 +10,7 @@
             <img src="../assets/mascot/Blank.png" alt="Jewey Mascot" class="avatar" />
           </div>
         </div>
-  
+    
         <h2 class="login-title">Welcome Back 👋</h2>
         <p class="intro">Log in to continue your journey with Jewey!</p>
   
@@ -61,8 +61,8 @@
         email: email.value,
         password: password.value
       })
-  
-      if (resp.data?.success) {
+      console.log(resp.data)
+      if (resp.data?.user) {
         alert("🎉 Login successful!")
         // TODO: Redirect to dashboard/home
       } else {
