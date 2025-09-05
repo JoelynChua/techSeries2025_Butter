@@ -158,7 +158,8 @@ export default {
       showResults: false,
       answers: {},
       finalScore: null,
-      scoreBand: null, lastDailyQuizAt: null,
+      scoreBand: null,
+      lastDailyQuizAt: null,
       hasDoneToday: false,
     };
   },
@@ -174,15 +175,9 @@ export default {
       const q = this.currentQuestion;
       const ans = this.answers[q.field_name];
 
-      if (q.type === "range") {
-        return typeof ans === "number" && !Number.isNaN(ans);
-      }
-      if (q.type === "options") {
-        return ans !== null && ans !== undefined && ans !== "";
-      }
-      if (q.type === "text") {
-        return q.required ? !!(ans && ans.toString().trim().length) : true;
-      }
+      if (q.type === "range") return typeof ans === "number" && !Number.isNaN(ans);
+      if (q.type === "options") return ans !== null && ans !== undefined && ans !== "";
+      if (q.type === "text") return q.required ? !!(ans && ans.toString().trim().length) : true;
       return false;
     },
     bandTips() {
@@ -192,36 +187,52 @@ export default {
   },
   methods: {
     async fetchTodayResult() {
-  try {
-    const { data } = await axios.get(`${baseURL}/userDailyQuizResult`, { params: { userId: 1 } });
-    // backend shape: { userId, daily_quiz_at, row }
-    const row = data?.row || null;
+      try {
+        const userId = sessionStorage.getItem("userId");
+        if (!userId) {
+          this.finalScore = null;
+          this.scoreBand = null;
+          return false;
+        }
 
-    // keep the latest daily_quiz_at around for UI if needed
-    this.lastDailyQuizAt = data?.daily_quiz_at ?? this.lastDailyQuizAt;
+        const { data } = await axios.get(`${baseURL}/userDailyQuizResult`, {
+          params: { userId },
+        });
 
-    if (!row) {
-      this.finalScore = null;
-      this.scoreBand = null;
-      return false; // no result for today
-    }
+        const row = data?.row || null;
+        this.lastDailyQuizAt = data?.daily_quiz_at ?? this.lastDailyQuizAt;
 
-    this.finalScore = row?.finalMoodScores ?? null;
-    this.scoreBand  = row?.scoreBand ?? null; // backend already attaches band
-    this.isLoading = false;
-    return true; // we have a result for today
-  } catch (e) {
-    console.warn("Failed to fetch today's result:", e);
-    this.finalScore = null;
-    this.scoreBand = null;
-    this.isLoading = false;
-    return false;
-  }
-}
-,
+        if (!row) {
+          this.finalScore = null;
+          this.scoreBand = null;
+          return false;
+        }
+
+        this.finalScore = row?.finalMoodScores ?? null;
+        this.scoreBand = row?.scoreBand ?? null; // backend attaches band
+        this.isLoading = false;
+        return true;
+      } catch (e) {
+        console.warn("Failed to fetch today's result:", e);
+        this.finalScore = null;
+        this.scoreBand = null;
+        this.isLoading = false;
+        return false;
+      }
+    },
+
     async fetchDailyQuizStatus() {
       try {
-        const res = await axios.get(`${baseURL}/userDailyQuiz`, { params: { userId: 1 } });
+        const userId = sessionStorage.getItem("userId");
+        if (!userId) {
+          this.lastDailyQuizAt = null;
+          this.hasDoneToday = false;
+          return;
+        }
+
+        const res = await axios.get(`${baseURL}/userDailyQuiz`, {
+          params: { userId },
+        });
         const iso = res?.data?.daily_quiz_at || null;
         this.lastDailyQuizAt = iso;
         this.hasDoneToday = iso ? this.isSameLocalDay(new Date(iso), new Date()) : false;
@@ -231,12 +242,16 @@ export default {
         this.hasDoneToday = false;
       }
     },
+
     // Compare Y/M/D in local time (client timezone)
     isSameLocalDay(a, b) {
-      return a.getFullYear() === b.getFullYear() &&
+      return (
+        a.getFullYear() === b.getFullYear() &&
         a.getMonth() === b.getMonth() &&
-        a.getDate() === b.getDate();
+        a.getDate() === b.getDate()
+      );
     },
+
     // Format datetime in Asia/Singapore (adjust if you prefer device tz)
     formatLocalDT(iso) {
       try {
@@ -249,6 +264,7 @@ export default {
         return new Date(iso).toLocaleString();
       }
     },
+
     async fetchQuizConfig() {
       this.isLoading = true;
       try {
@@ -265,10 +281,10 @@ export default {
               inputType === "number" || inputType === "scale"
                 ? "range"
                 : inputType === "boolean"
-                  ? "options"
-                  : inputType === "text"
-                    ? "text"
-                    : null;
+                ? "options"
+                : inputType === "text"
+                ? "text"
+                : null;
 
             if (!type) return null;
 
@@ -321,31 +337,29 @@ export default {
         this.currentQuestionIndex++;
       }
     },
+
     prevQuestion() {
       if (this.currentQuestionIndex > 0) this.currentQuestionIndex--;
     },
 
     // Map question keys -> /moodMetric payload fields
     buildSubmissionPayload() {
-      // backend accepts these keys:
-      // userId, sleepHours, exerciseHours, workingHrs, sleepQuality, mood,
-      // energy, stress, timeOutsideMin, connectwithfamily, notes, created_timestamp, finalMoodScores
       const keyToPayload = {
         sleep_hours: "sleepHours",
         work_hours: "workingHrs",
-        sleep_quality: "sleepQuality",      // 1–10
-        mood: "mood",                       // 1–10
-        energy: "energy",                   // 1–10
-        stress: "stress",                   // 1–10 (higher = more stressed)
+        sleep_quality: "sleepQuality", // 1–10
+        mood: "mood", // 1–10
+        energy: "energy", // 1–10
+        stress: "stress", // 1–10 (higher = more stressed)
         time_outside_min: "timeOutsideMin", // minutes (int)
         connect_with_family: "connectwithfamily",
         notes: "notes",
-        // special case: exercise_min (minutes) -> exerciseHours (hours)
-        exercise_min: "exerciseHours",
+        exercise_min: "exerciseHours", // minutes -> hours
       };
 
+      const userId = sessionStorage.getItem("userId");
       const payload = {
-        userId: sessionStorage.getItem("userId"), // TODO: replace with real user id
+        userId, // use sessionStorage user id
         created_timestamp: new Date().toISOString().slice(0, 19).replace("T", " "),
       };
 
@@ -354,13 +368,11 @@ export default {
           let val = this.answers[key];
 
           if (key === "exercise_min") {
-            // convert minutes -> hours with 2dp
             const hours = Number(val) / 60;
             val = Number.isFinite(hours) ? Number(hours.toFixed(2)) : 0;
           }
 
           if (key === "time_outside_min") {
-            // ensure integer minutes
             val = Number.isFinite(Number(val)) ? Math.round(Number(val)) : 0;
           }
 
@@ -385,7 +397,6 @@ export default {
       }
     },
 
-
     sliderTooltip(value, min, max, sliderRef) {
       if (!sliderRef || value === undefined) return "0px";
       const percent = (Number(value) - Number(min)) / (Number(max) - Number(min));
@@ -396,24 +407,31 @@ export default {
     },
   },
 
-async mounted() {
-  await this.fetchDailyQuizStatus();
+  async mounted() {
+    const userId = sessionStorage.getItem("userId");
 
-  if (this.hasDoneToday) {
-    const gotToday = await this.fetchTodayResult();
-    if (gotToday) {
-      this.showResults = true;   // show results page only
-      return;                    // do not load questions
+    // If no user id, just load quiz config so the UI still works
+    if (!userId) {
+      await this.fetchQuizConfig();
+      return;
     }
-  }
 
-  // No result found for today -> load questions
-  await this.fetchQuizConfig();
-  const userId = sessionStorage.getItem("userId"); 
-}
+    await this.fetchDailyQuizStatus();
 
+    if (this.hasDoneToday) {
+      const gotToday = await this.fetchTodayResult();
+      if (gotToday) {
+        this.showResults = true; // show results page only
+        return; // do not load questions
+      }
+    }
+
+    // No result found for today -> load questions
+    await this.fetchQuizConfig();
+  },
 };
 </script>
+
 
 
 <style scoped>

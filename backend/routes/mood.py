@@ -2,7 +2,8 @@ from flask import Blueprint, request, jsonify
 from datetime import datetime, timezone, timedelta
 from core.db import supabase, exec_data, MOOD_TABLE, USERS_TABLE
 import re
-import json  # local import for tips parsing
+import json 
+from zoneinfo import ZoneInfo
 bp = Blueprint("mood", __name__)
 
 @bp.route("/moodMetric", methods=["GET"])
@@ -563,6 +564,114 @@ def userDailyQuizResult():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@bp.route("/userWeeklyQuizResult", methods=["GET"])
+def userWeeklyQuizResult():
+    """
+    Get user weekly quiz result:
+    - Read users.daily_quiz_at
+    - Use the SGT week that contains that timestamp (Mon 00:00 → next Mon 00:00)
+    - Return all moodMetric rows for that week, each with scoreBand attached
+    - Also return simple stats (count/avg/min/max) for the week
+
+    Query:
+      - userId (required): integer
+
+    Response (200):
+      {
+        "userId": 42,
+        "daily_quiz_at": "2025-09-05T18:01:42.570567+00:00",
+        "week_start_utc": "2025-09-01T16:00:00+00:00",
+        "week_end_utc": "2025-09-08T16:00:00+00:00",
+        "count": 3,
+        "avgScore": 6.9,
+        "minScore": 6.2,
+        "maxScore": 7.5,
+        "rows": [ { ... , "scoreBand": {...} }, ... ]
+      }
+    """
+    try:
+        user_id = request.args.get("userId", type=int)
+        if user_id is None:
+            return jsonify({"error": "Missing userId"}), 400
+
+        # 1) Fetch user's daily_quiz_at
+        try:
+            uresp = (
+                supabase.table(USERS_TABLE)
+                .select("userId,daily_quiz_at")
+                .eq("userId", user_id)
+                .limit(1)
+                .execute()
+            )
+            udata = exec_data(uresp) or []
+            if not udata:
+                return jsonify({"error": "User not found"}), 404
+            daily_quiz_at = (udata[0] or {}).get("daily_quiz_at")
+        except Exception as ue:
+            print("users.daily_quiz_at fetch error:", ue)
+            daily_quiz_at = None
+
+        # 2) Determine the SGT week bounds
+        if daily_quiz_at:
+            week_start_utc, week_end_utc = sg_week_bounds_from_ts(daily_quiz_at)
+            # print("SGT week bounds from daily_quiz_at:", week_start_utc, week_end_utc)
+        else:
+            # If user has no daily_quiz_at yet, use current SGT week
+            now_iso = datetime.now(timezone.utc).isoformat()
+            week_start_utc, week_end_utc = sg_week_bounds_from_ts(now_iso)
+
+        if not week_start_utc or not week_end_utc:
+            return jsonify({"error": "Unable to derive SGT week bounds"}), 500
+
+        # 3) Load bands once
+        bands = load_score_bands()
+
+        # 4) Fetch all moodMetric rows for that user within the week (SGT → UTC bounds)
+        try:
+            mresp = (
+                supabase.table(MOOD_TABLE)
+                .select("*")
+                .eq("userId", user_id)
+                .gte("created_timestamp", week_start_utc)
+                .lt("created_timestamp", week_end_utc)
+                .order("created_timestamp", desc=True)
+                .execute()
+            )
+            mrows = exec_data(mresp) or []
+        except Exception as me:
+            print("moodMetric weekly fetch error:", me)
+            mrows = []
+
+        # 5) Attach scoreBand to each row and compute stats
+        scores = []
+        for r in mrows:
+            try:
+                sc = float(r.get("finalMoodScores")) if r.get("finalMoodScores") is not None else None
+            except (TypeError, ValueError):
+                sc = None
+            r["scoreBand"] = pick_score_band_for(sc, bands)
+            if sc is not None:
+                scores.append(sc)
+
+        avgScore = round(sum(scores) / len(scores), 1) if scores else None
+        minScore = min(scores) if scores else None
+        maxScore = max(scores) if scores else None
+
+        return jsonify({
+            "userId": user_id,
+            "daily_quiz_at": daily_quiz_at,
+            "week_start_utc": week_start_utc,
+            "week_end_utc": week_end_utc,
+            "count": len(mrows),
+            "avgScore": avgScore,
+            "minScore": minScore,
+            "maxScore": maxScore,
+            "rows": mrows,
+        }), 200
+
+    except Exception as e:
+        print("Error in userWeeklyQuizResult:", e)
+        return jsonify({"error": str(e)}), 500
 
 # --- add near top of the file (helpers) --------------------------------------
 def _parse_tips(tips_raw):
@@ -811,4 +920,36 @@ def compute_final_score_from_weights(raw_values):
     score_0_1 = num / den
     score_0_10 = round(score_0_1 * 10.0, 1)
     return score_0_10
+def sg_week_bounds_from_ts(ts_iso: str, tz_name: str = "Asia/Singapore"):
+    """
+    Given an ISO timestamp (any tz), return the UTC ISO bounds for the local SGT week
+    (Mon 00:00:00 to next Mon 00:00:00) that contains that timestamp.
+    """
+    if not ts_iso:
+        return None, None
+    try:
+        # Robust parse; accept ...Z or ...+00:00 etc.
+        ts_iso = str(ts_iso)
+        if ts_iso.endswith("Z"):
+            dt = datetime.fromisoformat(ts_iso.replace("Z", "+00:00"))
+        else:
+            dt = datetime.fromisoformat(ts_iso)
+    except Exception:
+        try:
+            # Fallback: treat as UTC naive
+            dt = datetime.strptime(ts_iso[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+        except Exception:
+            return None, None
+
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+
+    local = dt.astimezone(ZoneInfo(tz_name))
+    # Monday=0 .. Sunday=6
+    start_local = (local - timedelta(days=local.weekday())).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
+    end_local = start_local + timedelta(days=6)
+
+    start_utc = start_local.astimezone(timezone.utc).isoformat()
+    end_utc = end_local.astimezone(timezone.utc).isoformat()
+    return start_utc, end_utc
 # --- end helpers -------------------------------------------------------------
