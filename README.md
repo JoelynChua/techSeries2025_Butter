@@ -31,8 +31,7 @@ A **digital buddy mascot** that guides users through their mental wellbeing jour
 - **Database:** Supabase  
 - **Backend:** Python, Node.js  
 - **Frontend:** JavaScript, Vue.js  
-- **AI Integration:** OpenAI (ChatGPT)  
-- **Security:** JWT  
+- **AI Integration:** OpenAI (ChatGPT)   
 
 ---
 
@@ -69,20 +68,25 @@ Check-ins and wellbeing tracking allow users to monitor trends before crises occ
 ## Future Development & Scalability
 
 **Future Enhancements:**  
-- Peer-support communities with anonymous check-ins.  
-- Personalized recommendations for hobbies, relaxation exercises, coping strategies.  
-- Advanced gamification: rewards, milestones, mascot evolution.  
-- Extended wearable integration for automated sleep, activity, and stress monitoring.
+- Develop peer-support communities where users can anonymously or semi-anonymously check in on friends, reducing isolation.
+
+- Add personalized recommendations for hobbies, relaxation exercises, and coping strategies based on user check-ins.
+
+- Introduce advanced gamification with digital mascots, rewards, and milestone achievements to encourage regular engagement.
+
+- Integrate with wearables and health trackers (Fitbit, Apple Watch) to automatically monitor sleep, activity, and stress indicators.
+
+
 
 **Use Cases:**  
-- Schools, universities, workplaces for mental wellness programs.  
-- Support for stress, burnout, lifestyle-related mental health concerns.  
-- Integration with public health campaigns while maintaining privacy.
+- Adaptable for schools, universities, and workplaces for mental wellness programs.
+- Extendable to support different mental health concerns, such as stress, burnout, and early intervention for lifestyle-related issues.  
+- Can integrate with public health campaigns and research initiatives while maintaining user privacy.
 
-**Technical Scalability:**  
+**Future Technical Scalability:**  
 - Cloud-native architecture (AWS/GCP/Azure) for horizontal scaling.  
 - Microservices architecture for independent module deployment (check-ins, alerts, gamification).  
-- Real-time notifications via WebSockets or Firebase Realtime Database.
+- Cloud-native architecture (AWS/GCP/Azure) enables horizontal scaling to support thousands of users.
 
 ---
 
