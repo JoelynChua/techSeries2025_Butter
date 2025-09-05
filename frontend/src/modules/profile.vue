@@ -10,6 +10,9 @@
 
         <!-- Phone-sized content area -->
         <div class="relative mx-auto max-w-sm px-3 py-6">
+            <!-- Signout button -->
+            <button class="signout-btn" @click="handleSignout">Sign Out</button>
+
             <section class="profile" v-if="loaded">
                 <!-- Header -->
                 <header class="profile__header">
@@ -28,18 +31,23 @@
                 </div>
             </section>
 
-            <p v-else>Loading profile...</p>
+            <p v-else class="loading">Loading profile...</p>
         </div>
     </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import axios from 'axios'
 import BarMeter from '../components/BarMeter.vue'
 
+const router = useRouter()
+
 // Hardcoded userId
-const userId = 2
+const userId = sessionStorage.getItem("userId");
+
+const baseURL = import.meta.env.VITE_API_BASE || 'http://localhost:5000'
 
 const username = ref('')
 const metrics = ref({ sleepHours: 0, sleepQuality: 0, energy: 0, stress: 0, mood: 0 })
@@ -70,11 +78,11 @@ const meterList = computed(() => {
 onMounted(async () => {
     try {
         // Get username
-        const resUser = await axios.get('/userProfile', { params: { userId } })
-        username.value = resUser.data?.username || 'User'
+        const resUser = await axios.get(`${baseURL}/userProfile`, { params: { userId } })
+        username.value = resUser.data.row.username || 'User'
 
         // Get all metrics from /moodMetric
-        const resMetrics = await axios.get('/moodMetric', { params: { userId } })
+        const resMetrics = await axios.get(`${baseURL}/moodMetric`, { params: { userId } })
         let rows = resMetrics?.data
         if (Array.isArray(rows)) {
             // ok
@@ -99,6 +107,11 @@ onMounted(async () => {
         console.error('Failed to fetch profile/metrics', err)
     }
 })
+
+function handleSignout() {
+    sessionStorage.removeItem("userId")
+    router.push("/login") // adjust route if your login page differs
+}
 </script>
 
 <style scoped>
@@ -113,6 +126,33 @@ onMounted(async () => {
     --knob: 18px;
 }
 
+.signout-btn {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    background: #f87171; /* red-ish pink */
+    color: white;
+    padding: 0.45rem 1rem;
+    border-radius: 9999px; /* fully rounded pill */
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+    transition: background 0.2s, transform 0.15s;
+    z-index: 20; /* ensure it's on top, but not covering avatar */
+}
+
+.signout-btn:hover {
+    background: #ef4444;
+    transform: translateY(-1px);
+}
+
+
+.signout-btn:hover {
+    background: #ef4444;
+}
+
 .profile {
     display: grid;
     gap: 1.25rem;
@@ -125,8 +165,8 @@ onMounted(async () => {
     grid-template-columns: 56px 1fr;
     align-items: center;
     gap: 0.75rem;
+    margin-top: 1rem; 
 }
-
 
 .avatar {
     width: 56px;
@@ -155,4 +195,16 @@ onMounted(async () => {
     display: grid;
     gap: 14px;
 }
+
+.loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh; /* centers it vertically inside screen */
+    font-size: 1rem;
+    font-weight: 500;
+    color: #374151; /* nice gray tone */
+    text-align: center;
+}
+
 </style>

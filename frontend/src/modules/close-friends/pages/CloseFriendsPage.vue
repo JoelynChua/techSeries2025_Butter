@@ -19,9 +19,10 @@ import Support from '@/assets/mascot/Support.png'
 const router = useRouter()
 const mascot = { Blank, Concerned, GoodJob, Happy, Love, Pout, Proud, Support }
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/,'')
+// const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000'
 const OWNER_UID =
-  (localStorage.getItem('ownerUid') || localStorage.getItem('userId')) ||
+  (sessionStorage.getItem('ownerUid') || sessionStorage.getItem('userId')) ||
   (import.meta.env.VITE_OWNER_UID || '')
 
 const friends = ref([])
@@ -61,11 +62,11 @@ function mascotByEmotion(e) {
   const { mood, energy, sleep } = normalizeEmotion(e)
   const avg = (mood + energy + sleep) / 3
   if (sleep < 35 && avg < 60) return mascot.Pout
-  if (avg < 35)               return mascot.Concerned
-  if (avg < 45)               return mascot.Support
-  if (avg >= 90)              return mood >= 92 ? mascot.Love : mascot.Proud
-  if (avg >= 75)              return (mood >= 80 && energy >= 75) ? mascot.Proud : mascot.Happy
-  if (avg >= 58)              return mascot.GoodJob
+  if (avg < 35) return mascot.Concerned
+  if (avg < 45) return mascot.Support
+  if (avg >= 90) return mood >= 92 ? mascot.Love : mascot.Proud
+  if (avg >= 75) return (mood >= 80 && energy >= 75) ? mascot.Proud : mascot.Happy
+  if (avg >= 58) return mascot.GoodJob
   return mascot.Blank
 }
 
@@ -122,7 +123,7 @@ async function robustFetchFriends() {
   throw new Error(lastError || 'No candidate URL succeeded')
 }
 
-async function fetchFriends () {
+async function fetchFriends() {
   loading.value = true
   friendsError.value = ''
   try {
@@ -151,7 +152,8 @@ async function deleteFriend(friend) {
   const res = await fetch(url, { method: 'DELETE', headers: { Accept: 'application/json' } })
   if (!res.ok) {
     let msg = ''
-    try { msg = JSON.stringify(await res.json()) } catch { try { msg = await res.text() } catch {}
+    try { msg = JSON.stringify(await res.json()) } catch {
+      try { msg = await res.text() } catch { }
     }
     throw new Error(`HTTP ${res.status}${msg ? ` - ${msg}` : ''}`)
   }
@@ -182,10 +184,10 @@ const filteredFriends = computed(() => {
   return list
 })
 
-function openAddForm () { formMode.value = 'add'; selectedFriend.value = null; showForm.value = true }
-function closeForm () { showForm.value = false }
+function openAddForm() { formMode.value = 'add'; selectedFriend.value = null; showForm.value = true }
+function closeForm() { showForm.value = false }
 
-async function createFriend (payload) {
+async function createFriend(payload) {
   if (!payload.friendofuid) throw new Error('Please select a user from the list.')
   if (!payload.email) throw new Error('Selected user has no email (server requires it).')
 
@@ -209,7 +211,8 @@ async function createFriend (payload) {
   })
   if (!res.ok) {
     let serverMsg = ''
-    try { serverMsg = JSON.stringify(await res.json()) } catch { try { serverMsg = await res.text() } catch {}
+    try { serverMsg = JSON.stringify(await res.json()) } catch {
+      try { serverMsg = await res.text() } catch { }
     }
     throw new Error(`HTTP ${res.status}${serverMsg ? ` - ${serverMsg}` : ''}`)
   }
@@ -217,47 +220,37 @@ async function createFriend (payload) {
   return res.json()
 }
 
-async function handleSaved () {
+async function handleSaved() {
   await fetchFriends()
   showForm.value = false
-  try { router.replace({ name: 'CloseFriends' }) } catch {}
+  try { router.replace({ name: 'CloseFriends' }) } catch { }
 }
 
-function onCloseHeader () {}
+function onCloseHeader() { }
 </script>
 
 <template>
   <div class="min-h-screen relative overflow-x-hidden">
     <div class="absolute inset-0 bg-gradient-to-b from-sky-200 to-sky-300"></div>
-    <div
-      class="pointer-events-none absolute inset-0 opacity-20"
-      style="background-image:radial-gradient(white 18%, transparent 19%),radial-gradient(white 18%, transparent 19%);background-position:0 0,16px 16px;background-size:32px 32px;"
-    ></div>
+    <div class="pointer-events-none absolute inset-0 opacity-20"
+      style="background-image:radial-gradient(white 18%, transparent 19%),radial-gradient(white 18%, transparent 19%);background-position:0 0,16px 16px;background-size:32px 32px;">
+    </div>
 
     <div class="relative mx-auto max-w-sm px-3 py-6">
       <!-- Toasts inside phone screen -->
       <div class="absolute top-3 inset-x-0 z-40 flex justify-center px-3">
-        <TransitionGroup
-          tag="div"
-          class="w-full flex flex-col items-center space-y-2"
-          enter-active-class="transition duration-200"
-          enter-from-class="opacity-0 translate-y-1"
-          enter-to-class="opacity-100 translate-y-0"
-          leave-active-class="transition duration-200"
-          leave-from-class="opacity-100 translate-y-0"
-          leave-to-class="opacity-0 translate-y-1"
-        >
-          <div
-            v-for="t in toasts"
-            :key="t.id"
+        <TransitionGroup tag="div" class="w-full flex flex-col items-center space-y-2"
+          enter-active-class="transition duration-200" enter-from-class="opacity-0 translate-y-1"
+          enter-to-class="opacity-100 translate-y-0" leave-active-class="transition duration-200"
+          leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 translate-y-1">
+          <div v-for="t in toasts" :key="t.id"
             class="w-full max-w-xs rounded-xl px-3 py-2.5 ring-1 shadow-lg backdrop-blur bg-white/95 flex items-start gap-2"
             :class="[
-              t.type==='success' && 'ring-emerald-200 text-emerald-900',
-              t.type==='error'   && 'ring-rose-200 text-rose-900',
-              t.type==='warning' && 'ring-amber-200 text-amber-900',
-              t.type==='info'    && 'ring-sky-200 text-sky-900'
-            ]"
-          >
+              t.type === 'success' && 'ring-emerald-200 text-emerald-900',
+              t.type === 'error' && 'ring-rose-200 text-rose-900',
+              t.type === 'warning' && 'ring-amber-200 text-amber-900',
+              t.type === 'info' && 'ring-sky-200 text-sky-900'
+            ]">
             <div class="text-lg leading-none pt-0.5">{{ toastIcon(t.type) }}</div>
             <div class="min-w-0">
               <div v-if="t.title" class="text-sm font-bold leading-tight">{{ t.title }}</div>
@@ -265,71 +258,43 @@ function onCloseHeader () {}
                 {{ t.message }}
               </div>
             </div>
-            <button
-              class="ml-auto text-xs opacity-60 hover:opacity-100 px-2"
-              @click="dismissToast(t.id)"
-              aria-label="Dismiss"
-            >✕</button>
+            <button class="ml-auto text-xs opacity-60 hover:opacity-100 px-2" @click="dismissToast(t.id)"
+              aria-label="Dismiss">✕</button>
           </div>
         </TransitionGroup>
       </div>
 
-      <ArcadeHeader
-        title="Close Friends"
-        :level="49"
-        :gems="0"
-        :edge="'none'"
-        :coins="18490"
-        @close="onCloseHeader"
-      />
+      <ArcadeHeader title="Close Friends" :level="49" :gems="0" :edge="'none'" :coins="18490" @close="onCloseHeader" />
 
       <div v-if="friendsError" class="mt-4 rounded-xl bg-rose-50 text-rose-700 ring-1 ring-rose-200 px-4 py-3">
         {{ friendsError }}
       </div>
 
       <div class="mt-4 flex justify-end">
-        <button
-          @click="openAddForm"
-          class="px-4 py-2 rounded-xl bg-sky-500 text-white hover:bg-sky-600 transition"
-        >
+        <button @click="openAddForm" class="px-4 py-2 rounded-xl bg-sky-500 text-white hover:bg-sky-600 transition">
           + Add Friend
         </button>
       </div>
 
       <div class="mt-6 rounded-3xl bg-white/90 ring-1 ring-white shadow p-4 backdrop-blur">
-        <FriendFilter
-          :activeTab="tab"
-          :query="query"
-          @update:tab="tab = $event"
-          @update:query="query = $event"
-        />
+        <FriendFilter :activeTab="tab" :query="query" @update:tab="tab = $event" @update:query="query = $event" />
       </div>
 
       <div class="mt-8 grid grid-cols-1 gap-6">
-        <FriendTile
-          v-for="f in filteredFriends"
-          :key="f.id"
-          :friend="f"
-          @remove="onRemoveFriend"
-        />
+        <FriendTile v-for="f in filteredFriends" :key="f.id" :friend="f" @remove="onRemoveFriend" />
       </div>
 
-      <div v-if="!loading && filteredFriends.length === 0" class="mt-12 text-center text-sky-900/70 text-lg font-medium">
+      <div v-if="!loading && filteredFriends.length === 0"
+        class="mt-12 text-center text-sky-900/70 text-lg font-medium">
         (｡•́︿•̀｡) No friends yet — add someone you trust.
       </div>
       <div v-if="loading" class="mt-12 text-center text-sky-900/60 animate-pulse">
         Loading buddies…
       </div>
 
-      <AddFriendModal
-        v-if="showForm"
-        :mode="formMode"
-        :friend="selectedFriend"
-        :alreadyAddedEmails="friends.map(f => (f.email || '').toLowerCase()).filter(Boolean)"
-        :onSave="createFriend"
-        @saved="handleSaved"
-        @close="closeForm"
-      />
+      <AddFriendModal v-if="showForm" :mode="formMode" :friend="selectedFriend"
+        :alreadyAddedEmails="friends.map(f => (f.email || '').toLowerCase()).filter(Boolean)" :onSave="createFriend"
+        @saved="handleSaved" @close="closeForm" />
     </div>
   </div>
 </template>

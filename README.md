@@ -19,19 +19,17 @@ Youths in Singapore face growing mental health challenges but lack accessible an
 A **digital buddy mascot** that guides users through their mental wellbeing journey, providing empathy and personalized support.
 
 ### Features
-- Mascot displays moods matching the user's current feelings.  
+- Engaging mascot that encourages interaction and lets users play or "fidget" with it.  
 - Regular check-ins tracking sleep, exercise, school/work hours.  
 - Quick questionnaires to calculate a mood score.  
-- Optional integration with wearables (Apple Watch, Fitbit).  
-- Alerts for thresholds indicating support is needed.  
+- Stimulated integration with wearables (Apple Watch, Fitbit) in databsase  
 - Integration with mental health hotlines: SOS, IMH Helpline, Care Corner, OverTheRainbow.  
 - Social support: add friends, share encouragement, and check each other’s moods.
 
 ### Tech Stack
 - **Database:** Supabase  
 - **Backend:** Python, Node.js  
-- **Frontend:** JavaScript, Vue.js  
-- **AI Integration:** OpenAI (ChatGPT)   
+- **Frontend:** JavaScript, Vue.js   
 
 ---
 
@@ -68,15 +66,13 @@ Check-ins and wellbeing tracking allow users to monitor trends before crises occ
 ## Future Development & Scalability
 
 **Future Enhancements:**  
+- Mascot displays moods matching the user's current feelings. 
+- Alert (using websocket) emergency contact when mood score is very low
 - Develop peer-support communities where users can anonymously or semi-anonymously check in on friends, reducing isolation.
-
 - Add personalized recommendations for hobbies, relaxation exercises, and coping strategies based on user check-ins.
-
+- Add visualisations to view trend on user's mood score
 - Introduce advanced gamification with digital mascots, rewards, and milestone achievements to encourage regular engagement.
-
 - Integrate with wearables and health trackers (Fitbit, Apple Watch) to automatically monitor sleep, activity, and stress indicators.
-
-
 
 **Use Cases:**  
 - Adaptable for schools, universities, and workplaces for mental wellness programs.

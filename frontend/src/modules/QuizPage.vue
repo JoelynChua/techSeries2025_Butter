@@ -272,7 +272,7 @@ export default {
       };
 
       const payload = {
-        userId: 1, // TODO: replace with real user id
+        userId: sessionStorage.getItem("userId"), // TODO: replace with real user id
         created_timestamp: new Date().toISOString().slice(0, 19).replace("T", " "),
       };
 
@@ -325,6 +325,9 @@ export default {
 
   async mounted() {
     await this.fetchQuizConfig();
+
+    const userId = sessionStorage.getItem("userId"); 
+    // console.log(userId, "quizId")
   },
 };
 </script>

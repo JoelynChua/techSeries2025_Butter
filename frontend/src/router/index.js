@@ -6,33 +6,31 @@ import Profile from '../modules/profile.vue'
 // Lazy-load to avoid bundling issues
 const HomePage = () => import('../modules/homepage.vue')
 const CloseFriendPage = () => import('../modules/close-friends/pages/CloseFriendsPage.vue')
-const LoginPage = () => import('../modules/Login.vue') // Import Login.vue
-const SignUpPage = () => import('../modules/SignUp.vue') // Import SignUp.vue
+const LoginPage = () => import('../modules/Login.vue')
+const SignUpPage = () => import('../modules/SignUp.vue')
 
 const routes = [
   ...closeFriendsRoutes,
 
   { path: '/quiz', name: 'Quiz', component: QuizPage },
 
-  { path: '/', name: 'Home', component: HomePage },
-  { path: '/homepage', redirect: { name: 'Home' } },
+  // 🔑 Default root now goes to Login
+  { path: '/', redirect: { name: 'Login' } },
 
-  // ✅ Direct route to close-friend page
+  // Optional secondary home path
+  { path: '/homepage', name: 'Home', component: HomePage },
+
   { path: '/close-friends', name: 'CloseFriends', component: CloseFriendPage },
 
-  // ✅ Add Login route
   { path: '/login', name: 'Login', component: LoginPage },
-
-  // ✅ Add SignUp route
   { path: '/signup', name: 'SignUp', component: SignUpPage },
 
-  // ✅ Include any child routes defined in closeFriendsRoutes
   ...closeFriendsRoutes,
 
   { path: '/profile', name: 'profile', component: Profile },
 
-  // Catch-all → redirect home
-  { path: '/:pathMatch(.*)*', redirect: { name: 'Home' } },
+  // Catch-all → redirect to Login (instead of Home)
+  { path: '/:pathMatch(.*)*', redirect: { name: 'Login' } },
 ]
 
 const router = createRouter({

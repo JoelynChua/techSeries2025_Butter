@@ -1,109 +1,138 @@
 <template>
-    <main class="home relative overflow-x-hidden">
-      <!-- Background image -->
-      <div class="absolute inset-0 bg-cover bg-center home-bg"></div>
-  
-      <!-- Sign Up Card -->
-      <div class="relative z-10 onboard-card">
-        <div class="avatar-wrapper">
-          <div class="avatar-container">
-            <img src="../assets/mascot/Blank.png" alt="Jewey Mascot" class="avatar" />
-          </div>
+  <main class="home relative overflow-x-hidden">
+    <!-- Background image -->
+    <div class="absolute inset-0 bg-cover bg-center home-bg"></div>
+
+    <!-- Sign Up Card -->
+    <div class="relative z-10 onboard-card">
+      <div class="avatar-wrapper">
+        <div class="avatar-container">
+          <img src="../assets/mascot/Blank.png" alt="Jewey Mascot" class="avatar" />
         </div>
-  
-        <h2 class="signup-title">Join Us 🎉</h2>
-        <p class="intro">Create an account to start your journey with Jewey!</p>
-  
-        <form @submit.prevent="handleSignUp" class="signup-form">
-          <div class="form-group">
-            <input
-              v-model="name"
-              type="text"
-              placeholder="Name"
-              required
-              class="form-input"
-            />
-          </div>
-          <div class="form-group">
-            <input
-              v-model="email"
-              type="email"
-              placeholder="Email"
-              required
-              class="form-input"
-            />
-          </div>
-          <div class="form-group">
-            <input
-              v-model="mobile"
-              type="tel"
-              placeholder="Mobile Number"
-              required
-              class="form-input"
-            />
-          </div>
-          <div class="form-group">
-            <input
-              v-model="password"
-              type="password"
-              placeholder="Password"
-              required
-              class="form-input"
-            />
-          </div>
-  
-          <button type="submit" class="signup-btn">
-            Sign Up
-          </button>
-        </form>
-  
-        <p class="login-text">
-          Already have an account?
-          <a href="/login" class="login-link">Log in</a>
-        </p>
       </div>
-    </main>
-  </template>
-  
-  <script setup>
-  import { ref } from 'vue'
-  import { useRouter } from 'vue-router'
-  import axios from 'axios'
-  
-  const name = ref('')
-  const email = ref('')
-  const mobile = ref('') // Add mobile field
-  const password = ref('')
-  const baseURL = import.meta.env.VITE_API_BASE || 'http://localhost:5000'
-  const router = useRouter()
-  
-  async function handleSignUp() {
-    try {
-      const signupResp = await axios.post(`${baseURL}/signup`, {
-        name: name.value,
-        email: email.value,
-        mobile: mobile.value, // Include mobile in the request
-        password: password.value,
-      })
-      console.log(signupResp.data)
-      if (signupResp.data?.user) {
-        alert("🎉 Sign-up successful! Please log in.")
-        router.push('/login')
-      } else {
-        alert("❌ Sign-up failed. Please try again.")
-      }
-    } catch (err) {
-      console.error("Sign-up failed:", err)
-      if (err.response?.status === 409) {
-        alert("⚠️ This email is already registered. Please log in instead.")
-        router.push('/login')
-      } else {
-        alert("⚠️ Something went wrong. Please try again.")
-      }
+
+      <h2 class="signup-title">Join Us 🎉</h2>
+      <p class="intro">Create an account to start your journey with Jewey!</p>
+
+      <form @submit.prevent="handleSignUp" class="signup-form">
+        <div class="form-group">
+          <input
+            v-model="name"
+            type="text"
+            placeholder="Name"
+            required
+            class="form-input"
+          />
+        </div>
+        <div class="form-group">
+          <input
+            v-model="email"
+            type="email"
+            placeholder="Email"
+            required
+            class="form-input"
+          />
+          <p v-if="errors.email" class="error">{{ errors.email }}</p>
+        </div>
+        <div class="form-group">
+          <input
+            v-model="mobile"
+            type="tel"
+            placeholder="Mobile Number"
+            required
+            class="form-input"
+          />
+          <p v-if="errors.mobile" class="error">{{ errors.mobile }}</p>
+        </div>
+        <div class="form-group">
+          <input
+            v-model="password"
+            type="password"
+            placeholder="Password"
+            required
+            class="form-input"
+          />
+          <p v-if="errors.password" class="error">{{ errors.password }}</p>
+        </div>
+
+        <button type="submit" class="signup-btn">
+          Sign Up
+        </button>
+      </form>
+
+      <p class="login-text">
+        Already have an account?
+        <a href="/login" class="login-link">Log in</a>
+      </p>
+    </div>
+  </main>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import axios from 'axios'
+
+const name = ref('')
+const email = ref('')
+const mobile = ref('')
+const password = ref('')
+const errors = ref({})
+
+const baseURL = import.meta.env.VITE_API_BASE || 'http://localhost:5000'
+const router = useRouter()
+
+function validateForm() {
+  errors.value = {}
+
+  // Email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email.value)) {
+    errors.value.email = 'Invalid email format'
+  }
+
+  // Mobile (must be exactly 8 digits)
+  const mobileRegex = /^\d{8}$/
+  if (!mobileRegex.test(mobile.value)) {
+    errors.value.mobile = 'Mobile number must be 8 digits'
+  }
+
+  // Password (at least 8 characters)
+  if (password.value.length < 8) {
+    errors.value.password = 'Password must be at least 8 characters'
+  }
+
+  return Object.keys(errors.value).length === 0
+}
+
+async function handleSignUp() {
+  if (!validateForm()) return // stop if validation fails
+
+  try {
+    const signupResp = await axios.post(`${baseURL}/signup`, {
+      name: name.value,
+      email: email.value,
+      mobile: mobile.value,
+      password: password.value,
+    })
+    console.log(signupResp.data)
+    if (signupResp.data?.user) {
+      alert("🎉 Sign-up successful! Please log in.")
+      router.push('/login')
+    } else {
+      alert("❌ Sign-up failed. Please try again.")
+    }
+  } catch (err) {
+    console.error("Sign-up failed:", err)
+    if (err.response?.status === 409) {
+      alert("⚠️ This email is already registered. Please log in instead.")
+      router.push('/login')
+    } else {
+      alert("⚠️ Something went wrong. Please try again.")
     }
   }
-  </script>
-  
+}
+</script>
 
 <style scoped>
 .home {
@@ -168,6 +197,13 @@
   outline: none;
   background: rgba(255, 255, 255, 0.9);
   color: #333;
+}
+
+.error {
+  font-size: 12px;
+  color: #ffbaba;
+  margin-top: 4px;
+  text-align: left;
 }
 
 .signup-btn {

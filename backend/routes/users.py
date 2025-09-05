@@ -30,7 +30,12 @@ def get_user_profile():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    return jsonify(row_to_public_user(user)), 200
+    # wrap in a consistent response object
+    return jsonify({
+        "message": "success",
+        "row": row_to_public_user(user)
+    }), 200
+
 
 
 @bp.route("/userProfile", methods=["PUT"])
