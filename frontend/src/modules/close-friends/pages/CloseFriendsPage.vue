@@ -1,11 +1,12 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+
 import ArcadeHeader from '../components/ArcadeHeader.vue'
 import FriendFilter from '../components/FriendFilter.vue'
 import FriendTile from '../components/FriendTile.vue'
 import AddFriendModal from '../components/AddFriendsModal.vue'
 
-// Mascots (src/assets/mascot/*.png)
 import Blank from '@/assets/mascot/Blank.png'
 import Concerned from '@/assets/mascot/Concerned.png'
 import GoodJob from '@/assets/mascot/GoodJob.png'
@@ -15,9 +16,8 @@ import Pout from '@/assets/mascot/Pout.png'
 import Proud from '@/assets/mascot/Proud.png'
 import Support from '@/assets/mascot/Support.png'
 
-const mascot = {
-  Blank, Concerned, GoodJob, Happy, Love, Pout, Proud, Support
-}
+const router = useRouter()
+const mascot = { Blank, Concerned, GoodJob, Happy, Love, Pout, Proud, Support }
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/,'')
 const OWNER_UID =
@@ -34,11 +34,7 @@ const showForm = ref(false)
 const formMode = ref('add')
 const selectedFriend = ref(null)
 
-/* -------------------------
-   Tiny toast system (in-theme)
-------------------------- */
 const toasts = ref([])
-/** pushToast({ type: 'success'|'error'|'warning'|'info', title?: string, message: string, timeout?: number }) */
 function pushToast({ type = 'info', title = '', message = '', timeout = 3500 } = {}) {
   const id = Math.random().toString(36).slice(2)
   toasts.value.push({ id, type, title, message })
@@ -54,10 +50,6 @@ function toastIcon(type) {
   return '🔔'
 }
 
-/* -------------------------
-   Emotion → Mascot mapping
-------------------------- */
-// Expect f.emotions = { mood: 0-100, energy: 0-100, sleep: 0-100 }
 function normalizeEmotion(e) {
   const m = Number.isFinite(e?.mood) ? e.mood : 20
   const en = Number.isFinite(e?.energy) ? e.energy : 60
@@ -65,20 +57,9 @@ function normalizeEmotion(e) {
   return { mood: clamp(m), energy: clamp(en), sleep: clamp(sl) }
 }
 function clamp(x) { return Math.max(0, Math.min(100, Number(x) || 0)) }
-
-/**
- * Heuristic:
- * - Very high overall → Love or Proud
- * - High → Happy
- * - Medium → GoodJob
- * - Low sleep specifically → Pout
- * - Low overall → Concerned / Support
- * - Neutral default → Blank
- */
 function mascotByEmotion(e) {
   const { mood, energy, sleep } = normalizeEmotion(e)
   const avg = (mood + energy + sleep) / 3
-
   if (sleep < 35 && avg < 60) return mascot.Pout
   if (avg < 35)               return mascot.Concerned
   if (avg < 45)               return mascot.Support
@@ -88,9 +69,6 @@ function mascotByEmotion(e) {
   return mascot.Blank
 }
 
-/* -------------------------
-   Friends fetch + shaping
-------------------------- */
 function friendRowsToUi(rows) {
   return rows.map(r => {
     const id = r.id ?? r.friendId ?? r.userId ?? Math.random().toString(36).slice(2)
@@ -152,7 +130,6 @@ async function fetchFriends () {
   } catch (e) {
     friends.value = []
     friendsError.value = `Could not load friends (${e.message}). If your API requires a user id, set one in localStorage: ownerUid=123`
-    console.error('[friends] load failed:', e, { tried: candidateFriendUrls() })
     pushToast({
       type: 'error',
       title: 'Load Failed',
@@ -164,13 +141,9 @@ async function fetchFriends () {
 }
 onMounted(fetchFriends)
 
-/* -------------------------
-   Delete friend (API)
-------------------------- */
 async function deleteFriend(friend) {
   const params = new URLSearchParams()
   params.set('id', String(friend.id))
-  // Only guard if we actually have friend.friendofuid (from the row)
   if (friend.friendofuid != null && friend.friendofuid !== '') {
     params.set('friendofuid', String(friend.friendofuid))
   }
@@ -178,7 +151,8 @@ async function deleteFriend(friend) {
   const res = await fetch(url, { method: 'DELETE', headers: { Accept: 'application/json' } })
   if (!res.ok) {
     let msg = ''
-    try { msg = JSON.stringify(await res.json()) } catch { try { msg = await res.text() } catch {} }
+    try { msg = JSON.stringify(await res.json()) } catch { try { msg = await res.text() } catch {}
+    }
     throw new Error(`HTTP ${res.status}${msg ? ` - ${msg}` : ''}`)
   }
   return res.json()
@@ -194,10 +168,6 @@ async function onRemoveFriend(friend) {
   }
 }
 
-
-/* -------------------------
-   Filter & actions
-------------------------- */
 const filteredFriends = computed(() => {
   let list = [...friends.value]
   if (tab.value === 'emergency') list = list.filter(f => !!(f.emergencycontact ?? f.emergencyContact))
@@ -215,50 +185,42 @@ const filteredFriends = computed(() => {
 function openAddForm () { formMode.value = 'add'; selectedFriend.value = null; showForm.value = true }
 function closeForm () { showForm.value = false }
 
-async function saveFriend (payload) {
-  try {
-    if (!payload.friendofuid) {
-      return pushToast({ type: 'warning', title: 'Pick a user', message: 'Please select a user from the list.' })
-    }
-    if (!payload.email) {
-      return pushToast({ type: 'error', title: 'Missing email', message: 'Selected user has no email (server requires it).' })
-    }
+async function createFriend (payload) {
+  if (!payload.friendofuid) throw new Error('Please select a user from the list.')
+  if (!payload.email) throw new Error('Selected user has no email (server requires it).')
 
-    const dup = friends.value.find(f => (f.email || '').toLowerCase() === payload.email.toLowerCase())
-    if (dup) {
-      return pushToast({ type: 'warning', title: 'Already added', message: 'This email is already in your friends list.' })
-    }
+  const dup = friends.value.find(f => (f.email || '').toLowerCase() === String(payload.email).toLowerCase())
+  if (dup) throw new Error('This email is already in your friends list.')
 
-    const body = {
-      friendofuid: Number(payload.friendofuid),
-      username: payload.username,
-      relationship: payload.relationship || '',
-      tags: Array.isArray(payload.tags) ? payload.tags : [],
-      emergencycontact: !!payload.emergencycontact,
-      email: payload.email,
-      phone: payload.phone || null
-    }
-
-    const res = await fetch(`${API_BASE}/friends`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(body)
-    })
-    if (!res.ok) {
-      let serverMsg = ''
-      try { serverMsg = JSON.stringify(await res.json()) } catch { try { serverMsg = await res.text() } catch {} }
-      throw new Error(`HTTP ${res.status}${serverMsg ? ` - ${serverMsg}` : ''}`)
-    }
-
-    await fetchFriends()
-    showForm.value = false
-    pushToast({ type: 'success', title: 'Friend added', message: `${payload.username} joined your list 🌱` })
-  } catch (e) {
-    console.error('saveFriend error:', e)
-    pushToast({ type: 'error', title: 'Save failed', message: e.message || 'Could not add friend.' })
-    // ensure modal closes on error as requested
-    showForm.value = false
+  const body = {
+    friendofuid: Number(payload.friendofuid),
+    username: payload.username,
+    relationship: payload.relationship || '',
+    tags: Array.isArray(payload.tags) ? payload.tags : [],
+    emergencycontact: !!payload.emergencycontact,
+    email: payload.email,
+    phone: payload.phone || null
   }
+
+  const res = await fetch(`${API_BASE}/friends`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(body)
+  })
+  if (!res.ok) {
+    let serverMsg = ''
+    try { serverMsg = JSON.stringify(await res.json()) } catch { try { serverMsg = await res.text() } catch {}
+    }
+    throw new Error(`HTTP ${res.status}${serverMsg ? ` - ${serverMsg}` : ''}`)
+  }
+
+  return res.json()
+}
+
+async function handleSaved () {
+  await fetchFriends()
+  showForm.value = false
+  try { router.replace({ name: 'CloseFriends' }) } catch {}
 }
 
 function onCloseHeader () {}
@@ -266,60 +228,52 @@ function onCloseHeader () {}
 
 <template>
   <div class="min-h-screen relative overflow-x-hidden">
-    <!-- theme -->
     <div class="absolute inset-0 bg-gradient-to-b from-sky-200 to-sky-300"></div>
     <div
       class="pointer-events-none absolute inset-0 opacity-20"
-      style="
-        background-image:
-          radial-gradient(white 18%, transparent 19%),
-          radial-gradient(white 18%, transparent 19%);
-        background-position: 0 0, 16px 16px;
-        background-size: 32px 32px;
-      "
+      style="background-image:radial-gradient(white 18%, transparent 19%),radial-gradient(white 18%, transparent 19%);background-position:0 0,16px 16px;background-size:32px 32px;"
     ></div>
 
-    <!-- Toast stack -->
-    <div class="fixed top-4 right-4 z-50 w-[92vw] max-w-sm space-y-2">
-      <TransitionGroup
-        tag="div"
-        enter-active-class="transition duration-200"
-        enter-from-class="opacity-0 translate-y-1"
-        enter-to-class="opacity-100 translate-y-0"
-        leave-active-class="transition duration-200"
-        leave-from-class="opacity-100 translate-y-0"
-        leave-to-class="opacity-0 translate-y-1"
-      >
-        <div
-          v-for="t in toasts"
-          :key="t.id"
-          class="rounded-xl px-3 py-2.5 ring-1 shadow-lg backdrop-blur flex items-start gap-2"
-          :class="[
-            t.type==='success' && 'bg-emerald-50/90 ring-emerald-200 text-emerald-900',
-            t.type==='error'   && 'bg-rose-50/90 ring-rose-200 text-rose-900',
-            t.type==='warning' && 'bg-amber-50/90 ring-amber-200 text-amber-900',
-            t.type==='info'    && 'bg-sky-50/90 ring-sky-200 text-sky-900'
-          ]"
+    <div class="relative mx-auto max-w-sm px-3 py-6">
+      <!-- Toasts inside phone screen -->
+      <div class="absolute top-3 inset-x-0 z-40 flex justify-center px-3">
+        <TransitionGroup
+          tag="div"
+          class="w-full flex flex-col items-center space-y-2"
+          enter-active-class="transition duration-200"
+          enter-from-class="opacity-0 translate-y-1"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition duration-200"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 translate-y-1"
         >
-          <div class="text-lg leading-none pt-0.5">{{ toastIcon(t.type) }}</div>
-          <div class="min-w-0">
-            <div v-if="t.title" class="text-sm font-bold leading-tight">{{ t.title }}</div>
-            <div class="text-xs leading-snug opacity-90">
-              {{ t.message }}
-            </div>
-          </div>
-          <button
-            class="ml-auto text-xs opacity-60 hover:opacity-100 px-2"
-            @click="dismissToast(t.id)"
-            aria-label="Dismiss"
+          <div
+            v-for="t in toasts"
+            :key="t.id"
+            class="w-full max-w-xs rounded-xl px-3 py-2.5 ring-1 shadow-lg backdrop-blur bg-white/95 flex items-start gap-2"
+            :class="[
+              t.type==='success' && 'ring-emerald-200 text-emerald-900',
+              t.type==='error'   && 'ring-rose-200 text-rose-900',
+              t.type==='warning' && 'ring-amber-200 text-amber-900',
+              t.type==='info'    && 'ring-sky-200 text-sky-900'
+            ]"
           >
-            ✕
-          </button>
-        </div>
-      </TransitionGroup>
-    </div>
+            <div class="text-lg leading-none pt-0.5">{{ toastIcon(t.type) }}</div>
+            <div class="min-w-0">
+              <div v-if="t.title" class="text-sm font-bold leading-tight">{{ t.title }}</div>
+              <div class="text-xs leading-snug opacity-90">
+                {{ t.message }}
+              </div>
+            </div>
+            <button
+              class="ml-auto text-xs opacity-60 hover:opacity-100 px-2"
+              @click="dismissToast(t.id)"
+              aria-label="Dismiss"
+            >✕</button>
+          </div>
+        </TransitionGroup>
+      </div>
 
-    <div class="relative mx-auto max-w-5xl px-5 py-6">
       <ArcadeHeader
         title="Close Friends"
         :level="49"
@@ -342,7 +296,7 @@ function onCloseHeader () {}
         </button>
       </div>
 
-      <div class="mt-6 rounded-3xl bg-white/90 ring-1 ring-white shadow-[0_16px_36px_-18px_rgba(2,132,199,0.35)] p-4 backdrop-blur">
+      <div class="mt-6 rounded-3xl bg-white/90 ring-1 ring-white shadow p-4 backdrop-blur">
         <FriendFilter
           :activeTab="tab"
           :query="query"
@@ -351,16 +305,12 @@ function onCloseHeader () {}
         />
       </div>
 
-      <div class="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      <div class="mt-8 grid grid-cols-1 gap-6">
         <FriendTile
           v-for="f in filteredFriends"
           :key="f.id"
           :friend="f"
           @remove="onRemoveFriend"
-          @update="() => {}"
-          @approve="() => {}"
-          @resend="() => {}"
-          @revoke="() => {}"
         />
       </div>
 
@@ -373,12 +323,12 @@ function onCloseHeader () {}
 
       <AddFriendModal
         v-if="showForm"
-        :mode="'add'"
-        :alreadyAddedIds="friends.map(f => String(f.friendofuid))"
+        :mode="formMode"
         :friend="selectedFriend"
-        @save="saveFriend"
+        :alreadyAddedEmails="friends.map(f => (f.email || '').toLowerCase()).filter(Boolean)"
+        :onSave="createFriend"
+        @saved="handleSaved"
         @close="closeForm"
-        @invalid="(e) => { pushToast({ type:'error', title:'Form error', message:e?.message || 'Invalid form' }); closeForm(); }"
       />
     </div>
   </div>
