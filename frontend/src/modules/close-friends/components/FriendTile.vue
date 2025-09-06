@@ -257,7 +257,7 @@ const avatarSrc = computed(() => props.friend?.avatar || mascotByEmotion(props.f
 const friendTags = computed(() => parseTags(props.friend?.tags || []))
 const anyBelowThreshold = computed(() => ['mood','energy','sleep'].some(below))
 
-/* ---------- actions ---------- */
+
 const confirming = ref(false)
 const removing   = ref(false)
 

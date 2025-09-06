@@ -1,5 +1,5 @@
 <template>
-  <!-- Overlay covers ONLY the phone frame (parent must be relative) -->
+  
   <div
     class="absolute inset-0 z-[60] flex items-center justify-center bg-sky-900/40 backdrop-blur-sm"
     @click.self="$emit('close')"

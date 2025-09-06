@@ -42,7 +42,7 @@ const showForm = ref(false)
 const formMode = ref('add')
 const selectedFriend = ref(null)
 
-/* expanded rows: manual toggle only (no auto-expand) */
+
 const expandedIds = ref(new Set())
 function setExpanded(id, on) { const s = new Set(expandedIds.value); on ? s.add(id) : s.delete(id); expandedIds.value = s }
 function toggleExpanded(friend) { setExpanded(friend.id, !expandedIds.value.has(friend.id)) }
