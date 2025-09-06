@@ -124,7 +124,6 @@ async function handleSignUp() {
       if (errorMessage.toLowerCase().includes('email')) {
         title = 'Email already exists'
         message = '⚠️ This email is already registered. Please log in instead.'
-        setTimeout(() => router.push('/login'), 300)
       } else if (errorMessage.toLowerCase().includes('mobile')) {
         title = 'Mobile number already exists'
         message = '⚠️ This mobile number is already registered. Please use a different number.'
