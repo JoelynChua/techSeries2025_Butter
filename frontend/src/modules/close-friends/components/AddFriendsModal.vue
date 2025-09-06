@@ -205,7 +205,8 @@ const serverError = ref('')
 const successMsg  = ref('')
 const saving      = ref(false)
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/,'')
+// const API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/,'')
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000'
 const USERS_URL = `${API_BASE}/users`
 
 function normalizeUsers(data) {
