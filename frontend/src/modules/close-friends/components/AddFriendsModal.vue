@@ -1,5 +1,5 @@
 <template>
-  <!-- Overlay covers ONLY the phone frame (parent must be relative) -->
+  
   <div
     class="absolute inset-0 z-[60] flex items-center justify-center bg-sky-900/40 backdrop-blur-sm"
     @click.self="$emit('close')"
@@ -208,6 +208,19 @@ const saving      = ref(false)
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/,'')
 const USERS_URL = `${API_BASE}/users`
 
+/** current session self */
+const SELF_UID = String(
+  sessionStorage.getItem('ownerUid') ||
+  sessionStorage.getItem('userId')   ||
+  localStorage.getItem('ownerUid')   ||
+  localStorage.getItem('userId')     ||
+  import.meta.env.VITE_OWNER_UID     || ''
+).trim()
+const SELF_EMAIL = String(
+  sessionStorage.getItem('email') ||
+  localStorage.getItem('email')   || ''
+).toLowerCase()
+
 function normalizeUsers(data) {
   const rows = Array.isArray(data?.rows) ? data.rows : (Array.isArray(data) ? data : [])
   return rows.map(r => {
@@ -239,13 +252,23 @@ onMounted(fetchProfiles)
 
 const addedEmailSet = computed(() => new Set((props.alreadyAddedEmails || []).map(e => String(e).toLowerCase())))
 
+/** exclude current session user here */
 const baseFiltered = computed(() => {
   const q = search.value.trim().toLowerCase()
-  const base = userProfiles.value
-  if (!q) return base.slice(0, 50)
-  return base.filter(u => u.username.toLowerCase().includes(q)).slice(0, 50)
+  const withoutSelf = userProfiles.value.filter(u => {
+    const notSelfId    = !SELF_UID   || String(u.id) !== String(SELF_UID)
+    const notSelfEmail = !SELF_EMAIL || u._emailLc !== SELF_EMAIL
+    return notSelfId && notSelfEmail
+  })
+  if (!q) return withoutSelf.slice(0, 50)
+  return withoutSelf.filter(u => u.username.toLowerCase().includes(q)).slice(0, 50)
 })
-const filtered = computed(() => SHOW_ADDED_IN_LIST ? baseFiltered.value : baseFiltered.value.filter(u => !addedEmailSet.value.has(u._emailLc)))
+
+const filtered = computed(() =>
+  SHOW_ADDED_IN_LIST
+    ? baseFiltered.value
+    : baseFiltered.value.filter(u => !addedEmailSet.value.has(u._emailLc))
+)
 
 function openList() { listOpen.value = true }
 function closeList() { listOpen.value = false; highlighted.value = -1 }
@@ -253,9 +276,20 @@ function deferCloseList() { blurTimer && clearTimeout(blurTimer); blurTimer = se
 function move(dir) { if (!listOpen.value) listOpen.value = true; const n = filtered.value.length; if (!n) return; highlighted.value = (highlighted.value + dir + n) % n }
 function chooseHighlighted() { if (highlighted.value < 0 || highlighted.value >= filtered.value.length) return; const u = filtered.value[highlighted.value]; if (addedEmailSet.value.has(u._emailLc)) return; selectUser(u) }
 
+/** block selecting self */
 function selectUser(u) {
+  if ((SELF_UID && String(u.id) === String(SELF_UID)) ||
+      (SELF_EMAIL && u._emailLc === SELF_EMAIL)) {
+    usersError.value = 'You canâ€™t add yourself as a friend.'
+    return
+  }
   if (addedEmailSet.value.has(u._emailLc)) return
-  const ownerId = (localStorage.getItem('ownerUid') || localStorage.getItem('userId') || import.meta.env.VITE_OWNER_UID || 4)
+
+  const ownerId =
+    (sessionStorage.getItem('ownerUid') || sessionStorage.getItem('userId')) ??
+    (localStorage.getItem('ownerUid')   || localStorage.getItem('userId')) ??
+    import.meta.env.VITE_OWNER_UID ?? 0
+
   form.friendofuid = Number(ownerId)
   form.username    = u.username
   form.email       = u.email || ''
@@ -308,7 +342,7 @@ watch(customRelationship, (val) => { if (selectedRelationship.value === 'Otherâ€
 watch(() => props.friend, (val) => {
   if (val && props.mode === 'edit') {
     Object.assign(form, {
-      friendofuid: Number(val.friendofuid ?? (localStorage.getItem('ownerUid') || localStorage.getItem('userId') || import.meta.env.VITE_OWNER_UID || 0)),
+      friendofuid: Number(val.friendofuid ?? (sessionStorage.getItem('ownerUid') || sessionStorage.getItem('userId') || localStorage.getItem('ownerUid') || localStorage.getItem('userId') || import.meta.env.VITE_OWNER_UID || 0)),
       username: val.username || '',
       relationship: val.relationship || '',
       tags: Array.isArray(val.tags) ? val.tags : [],
