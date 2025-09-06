@@ -115,10 +115,9 @@ async function handleSignUp() {
     }
   } catch (err) {
     if (err.response?.status === 409) {
-      // Get the error message from the backend
+      // Conflict: already exists
       const errorMessage = err.response?.data?.error || 'User already exists'
 
-      // Determine the title and message based on the error
       let title = 'Already registered'
       let message = '⚠️ Please try again with different information.'
 
@@ -129,22 +128,33 @@ async function handleSignUp() {
       } else if (errorMessage.toLowerCase().includes('mobile')) {
         title = 'Mobile number already exists'
         message = '⚠️ This mobile number is already registered. Please use a different number.'
+      } else if (errorMessage.toLowerCase().includes('username')) {
+        title = 'Username already exists'
+        message = '⚠️ This username is already taken. Please choose another.'
       }
 
       alerts.value?.add({
         type: 'warning',
-        title: title,
-        message: message,
+        title,
+        message,
         timeout: 4000
       })
     } else if (err.response?.status === 400) {
-      // Handle validation errors from backend
+      // Validation error
       const errorMessage = err.response?.data?.error || 'Invalid input'
       alerts.value?.add({
         type: 'error',
         title: 'Invalid input',
         message: `❌ ${errorMessage}`,
         timeout: 3000
+      })
+    } else if (err.response?.status === 500) {
+      // Server error
+      alerts.value?.add({
+        type: 'error',
+        title: 'Sign-up error',
+        message: 'Username or email or mobile number exist',
+        timeout: 4000
       })
     } else {
       alerts.value?.add({

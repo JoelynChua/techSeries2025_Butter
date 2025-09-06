@@ -68,6 +68,7 @@ Check-ins and wellbeing tracking allow users to monitor trends before crises occ
 **Future Enhancements:**  
 - Mascot displays moods matching the user's current feelings. 
 - Alert (using websocket) emergency contact when mood score is very low
+- Include JWT for more secure user login
 - Develop peer-support communities where users can anonymously or semi-anonymously check in on friends, reducing isolation.
 - Add personalized recommendations for hobbies, relaxation exercises, and coping strategies based on user check-ins.
 - Add visualisations to view trend on user's mood score
