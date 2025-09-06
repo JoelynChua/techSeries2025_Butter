@@ -22,6 +22,7 @@
         </div>
       </div>
 
+      <!-- badges -->
       <div class="mt-4 flex flex-wrap justify-center gap-2 text-xs">
         <span v-if="friend?.relationship" class="rounded-full bg-sky-100 px-3 py-1 font-semibold text-sky-700">
           {{ friend.relationship }}
@@ -34,6 +35,22 @@
         </span>
       </div>
 
+      <!-- TAGS: show as chips -->
+      <div
+        v-if="friendTags.length"
+        class="mt-3 flex flex-wrap justify-center gap-2"
+        aria-label="Tags"
+      >
+        <span
+          v-for="(tag, i) in friendTags"
+          :key="i"
+          class="text-xs bg-sky-100 text-sky-800 px-2 py-1 rounded-full ring-1 ring-sky-200"
+        >
+          #{{ tag }}
+        </span>
+      </div>
+
+      <!-- Emotions -->
       <div v-if="hasEmotions" class="mt-5 w-full rounded-2xl bg-sky-50/60 p-3 ring-1 ring-sky-100">
         <div class="mb-2">
           <div class="flex items-center justify-between text-[11px] font-semibold text-sky-900/80">
@@ -93,7 +110,7 @@
             <span v-else class="inline-flex items-center gap-2">
               <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"/>
-                <path class="opacity-75" d="M4 12a8 8 0 018-8v4" stroke="currentColor" stroke-linecap="round"/>
+                <path class="opacity-75" d="M4 12a 8 8 0 0 1 8-8v4" stroke="currentColor" stroke-linecap="round"/>
               </svg>
               Deleting…
             </span>
@@ -129,10 +146,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['update', 'remove', 'approve', 'resend', 'revoke'])
 
-const displayName = computed(() => props.friend?.username || props.friend?.name || 'Friend')
-const handle = computed(() => props.friend?.handle || '')
-const hasEmotions = computed(() => !!props.friend?.emotions)
-
+/* ---------- helpers ---------- */
 function clamp01(x) { return Math.max(0, Math.min(100, Number(x) || 0)) }
 function normalized(e) {
   return { mood: clamp01(e?.mood ?? 60), energy: clamp01(e?.energy ?? 60), sleep: clamp01(e?.sleep ?? 60) }
@@ -148,9 +162,33 @@ function mascotByEmotion(e) {
   if (avg >= 58)              return MASCOT.GoodJob
   return MASCOT.Blank
 }
-const avatarSrc = computed(() => props.friend?.avatar || mascotByEmotion(props.friend?.emotions) || MASCOT.Blank)
 function stat(v) { const n = Number(v ?? 0); return Math.max(0, Math.min(100, Number.isNaN(n) ? 0 : n)) }
 
+/* Robust tag parser: handles array, JSON string, or comma-separated */
+function parseTags(raw) {
+  if (Array.isArray(raw)) return raw
+  if (raw == null) return []
+  if (typeof raw === 'string') {
+    const s = raw.trim()
+    if (s.startsWith('[') && s.endsWith(']')) {
+      try { const arr = JSON.parse(s); return Array.isArray(arr) ? arr : [] } catch {}
+    }
+    return s.split(',').map(t => t.trim()).filter(Boolean)
+  }
+  if (typeof raw === 'object' && Array.isArray(raw.tags)) return raw.tags
+  return []
+}
+
+/* ---------- computed ---------- */
+const displayName = computed(() => props.friend?.username || props.friend?.name || 'Friend')
+const handle = computed(() => props.friend?.handle || '')
+const hasEmotions = computed(() => !!props.friend?.emotions)
+const avatarSrc = computed(() => props.friend?.avatar || mascotByEmotion(props.friend?.emotions) || MASCOT.Blank)
+
+/* parsed tags for rendering */
+const friendTags = computed(() => parseTags(props.friend?.tags || []))
+
+/* ---------- actions ---------- */
 const confirming = ref(false)
 const removing   = ref(false)
 
@@ -161,4 +199,3 @@ function confirmRemove () {
   setTimeout(() => { removing.value = false; confirming.value = false }, 600)
 }
 </script>
-
